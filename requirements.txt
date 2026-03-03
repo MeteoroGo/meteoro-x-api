@@ -1,0 +1,33 @@
+# METEORO X v5.3 — Dependencies
+# Cognitive Latency Arbitrage Engine — Commodities Trading
+
+# Core AI
+anthropic>=0.40.0
+
+# Web Search (DuckDuckGo)
+ddgs>=9.0.0
+
+# Web Scraping
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+
+# Async HTTP
+aiohttp>=3.9.0
+
+# Numerical / Algo Agents
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Financial data
+yfinance>=0.2.36
+
+# Data validation
+pydantic>=2.5.0
+
+# Database
+sqlalchemy>=2.0.0
+
+# Real-time server + WebSocket
+fastapi>=0.115.0
+uvicorn[standard]>=0.34.0
+websockets>=14.0
