@@ -15,13 +15,12 @@
 """
 
 import asyncio
-import aiohttp
 import json
 import logging
 import re
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
-from bs4 import BeautifulSoup
+from ddgs import DDGS
 
 logger = logging.getLogger("meteoro.latam")
 
@@ -174,123 +173,76 @@ LATAM_QUERIES = {
     ],
 }
 
-# Headers to avoid being blocked
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "es-CO,es;q=0.9,en;q=0.8",
-    "Accept-Encoding": "gzip, deflate",
-    "Connection": "keep-alive",
-}
 
 
 # ═══════════════════════════════════════════════════════════════
-# SCRAPING ENGINE
+# SEARCH ENGINE (using DuckDuckGo)
 # ═══════════════════════════════════════════════════════════════
 
-async def _fetch_page(url: str, timeout: int = 12) -> Optional[str]:
-    """Fetch a web page with retry logic."""
+def _search_duckduckgo(query: str, site_filter: Optional[str] = None, max_results: int = 10) -> List[Dict]:
+    """
+    Search using DuckDuckGo for LatAm news articles.
+
+    Args:
+        query: Search keywords (in Spanish)
+        site_filter: Optional site filter (e.g., "portafolio.co")
+        max_results: Maximum results to return
+
+    Returns:
+        List of article dicts with title, url, snippet
+    """
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                url,
-                headers=HEADERS,
-                timeout=aiohttp.ClientTimeout(total=timeout),
-                allow_redirects=True,
-                ssl=False,
-            ) as resp:
-                if resp.status == 200:
-                    return await resp.text()
-                else:
-                    logger.warning(f"HTTP {resp.status} for {url}")
-                    return None
-    except Exception as e:
-        logger.warning(f"Fetch error for {url}: {e}")
-        return None
+        ddgs = DDGS()
 
+        # Build search query with site filter if provided
+        if site_filter:
+            search_query = f"site:{site_filter} {query}"
+        else:
+            search_query = query
 
-def _extract_articles(html: str, source_config: Dict, base_url: str) -> List[Dict]:
-    """Extract articles from HTML using source-specific selectors."""
-    soup = BeautifulSoup(html, "html.parser")
-    articles = []
-    selectors = source_config["selectors"]
+        # Execute search
+        results = ddgs.text(search_query, max_results=max_results, backend="html")
 
-    # Try to find article containers
-    containers = soup.select(selectors["results"])[:15]
-
-    if not containers:
-        # Fallback: look for any links with article-like patterns
-        containers = soup.find_all("a", href=True)
-        containers = [a for a in containers if a.get_text(strip=True) and len(a.get_text(strip=True)) > 20][:15]
-
-    for container in containers:
-        try:
-            # Extract title
-            title_el = container.select_one(selectors["title"]) if hasattr(container, 'select_one') else container
-            if not title_el:
-                title_el = container
-
-            title = title_el.get_text(strip=True) if title_el else ""
-            if not title or len(title) < 10:
+        articles = []
+        for result in results:
+            try:
+                articles.append({
+                    "title": result.get("title", "")[:150],
+                    "url": result.get("href", ""),
+                    "snippet": result.get("body", "")[:200],
+                })
+            except Exception:
                 continue
 
-            # Extract link
-            link_el = container.select_one(selectors["link"]) if hasattr(container, 'select_one') else container
-            href = ""
-            if link_el:
-                href = link_el.get("href", "")
-            elif hasattr(container, 'get'):
-                href = container.get("href", "")
+        return articles
 
-            if href and not href.startswith("http"):
-                href = base_url.rstrip("/") + "/" + href.lstrip("/")
-
-            # Extract snippet
-            snippet = ""
-            snippet_el = container.select_one(selectors["snippet"]) if hasattr(container, 'select_one') else None
-            if snippet_el:
-                snippet = snippet_el.get_text(strip=True)[:200]
-
-            if title:
-                articles.append({
-                    "title": title[:150],
-                    "url": href,
-                    "snippet": snippet,
-                    "source": source_config["name"],
-                    "country": source_config["country"],
-                    "language": source_config["language"],
-                })
-
-        except Exception:
-            continue
-
-    return articles
+    except Exception as e:
+        logger.warning(f"DuckDuckGo search error: {e}")
+        return []
 
 
 async def search_source(
     source_key: str,
     query: str,
 ) -> Dict:
-    """Search a single LatAm news source."""
+    """Search a single LatAm news source using DuckDuckGo."""
     if source_key not in SOURCES:
         return {"status": "error", "error": f"Unknown source: {source_key}"}
 
     config = SOURCES[source_key]
-    search_url = config["search_url"].format(query=query.replace(" ", "+"))
+    source_domain = config["base_url"].replace("https://", "").replace("http://", "").rstrip("/")
 
-    html = await _fetch_page(search_url)
-    if not html:
-        return {
-            "status": "error",
-            "source": config["name"],
-            "query": query,
-            "articles": [],
-        }
+    # Perform DuckDuckGo search with site filter
+    articles = _search_duckduckgo(query, site_filter=source_domain, max_results=10)
 
-    articles = _extract_articles(html, config, config["base_url"])
+    # Enrich articles with source metadata
+    for article in articles:
+        article["source"] = config["name"]
+        article["country"] = config["country"]
+        article["language"] = config["language"]
 
     return {
-        "status": "OK",
+        "status": "OK" if articles else "no_results",
         "source": config["name"],
         "country": config["country"],
         "query": query,
@@ -422,55 +374,59 @@ async def check_government_gazettes() -> Dict:
     Check government gazette/regulatory sources for mining/energy decrees.
 
     These are the sources that detect regulatory changes 48-72h before
-    traditional media reports them.
+    traditional media reports them. Uses DuckDuckGo search to find recent
+    government announcements and decrees.
     """
     gazette_sources = [
         {
             "name": "MinMinas Colombia",
-            "url": "https://www.minenergia.gov.co/es/noticias/",
+            "domain": "minenergia.gov.co",
             "country": "Colombia",
+            "keywords": "decreto resolución minería",
         },
         {
             "name": "ANM Colombia (Agencia Nacional de Minería)",
-            "url": "https://www.anm.gov.co/noticias",
+            "domain": "anm.gov.co",
             "country": "Colombia",
+            "keywords": "resolución licencia minería",
         },
         {
             "name": "MINEM Perú",
-            "url": "https://www.gob.pe/minem",
+            "domain": "gob.pe",
             "country": "Peru",
+            "keywords": "decreto minería energía",
         },
     ]
 
     results = []
     for source in gazette_sources:
-        html = await _fetch_page(source["url"])
-        if html:
-            soup = BeautifulSoup(html, "html.parser")
-            # Extract recent news/announcements
+        try:
+            # Search for recent decrees/announcements from the ministry
+            query = f"site:{source['domain']} {source['keywords']}"
+            articles = _search_duckduckgo(query, max_results=5)
+
             headlines = []
-            for tag in soup.find_all(["h2", "h3", "h4", "a"], limit=20):
-                text = tag.get_text(strip=True)
-                if text and len(text) > 15 and len(text) < 200:
-                    href = tag.get("href", "")
-                    if href and not href.startswith("http"):
-                        href = source["url"].rstrip("/") + "/" + href.lstrip("/")
+            for article in articles:
+                if article.get("title"):
                     headlines.append({
-                        "title": text,
-                        "url": href,
+                        "title": article["title"][:150],
+                        "url": article["url"],
+                        "snippet": article.get("snippet", "")[:100],
                     })
 
             results.append({
                 "source": source["name"],
                 "country": source["country"],
-                "status": "OK",
+                "status": "OK" if headlines else "no_results",
                 "headlines": headlines[:5],
             })
-        else:
+
+        except Exception as e:
+            logger.warning(f"Error fetching {source['name']}: {e}")
             results.append({
                 "source": source["name"],
                 "country": source["country"],
-                "status": "unreachable",
+                "status": "error",
                 "headlines": [],
             })
 

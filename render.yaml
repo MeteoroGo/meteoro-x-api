@@ -2,10 +2,41 @@ services:
   - type: web
     name: meteoro-x-api
     runtime: python
+    pythonVersion: 3.11.0
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn meteoro_api:app --host 0.0.0.0 --port $PORT
     envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: meteoro-db
+          property: connectionString
       - key: PYTHON_VERSION
         value: 3.11.0
-    plan: free
     healthCheckPath: /api/health
+    healthCheckTimeout: 30
+    healthCheckStartupTimeout: 300
+
+  - type: cron
+    name: meteoro-monitor
+    runtime: python
+    pythonVersion: 3.11.0
+    buildCommand: pip install -r requirements.txt
+    startCommand: python monitor_cron.py
+    schedule: "0 */4 * * *"
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: meteoro-db
+          property: connectionString
+      - key: PYTHON_VERSION
+        value: 3.11.0
+
+databases:
+  - name: meteoro-db
+    engine: postgres
+    plan: standard
+    ipAllowList: []

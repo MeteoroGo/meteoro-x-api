@@ -238,8 +238,14 @@ async def get_fires_in_area(
 
 
 def _generate_synthetic_firms(bbox: str, days: int) -> Dict:
-    """Generate synthetic FIRMS data when API key is not available."""
+    """
+    Generate synthetic FIRMS data when API key is not available.
+
+    Data varies by time of day (lower activity at night) and includes
+    occasional anomalies (10% chance) to look realistic for demo/backtesting.
+    """
     import random
+    from datetime import datetime as dt, timedelta
 
     parts = bbox.split(",")
     if len(parts) != 4:
@@ -247,20 +253,48 @@ def _generate_synthetic_firms(bbox: str, days: int) -> Dict:
 
     west, south, east, north = [float(p) for p in parts]
 
+    # Determine if anomaly should occur (10% chance)
+    has_anomaly = random.random() < 0.1
+
     fires = []
-    num_fires = random.randint(1, 6)
-    for _ in range(num_fires):
-        fires.append({
-            "lat": round(random.uniform(south, north), 4),
-            "lon": round(random.uniform(west, east), 4),
-            "brightness": round(random.uniform(300, 500), 1),
-            "confidence": random.choice(["low", "nominal", "high"]),
-            "frp": round(random.uniform(5, 50), 1),
-            "acq_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-            "acq_time": f"{random.randint(0, 23):02d}{random.randint(0, 59):02d}",
-            "satellite": "SYNTHETIC",
-            "daynight": random.choice(["D", "N"]),
-        })
+
+    # Generate fires for each day in the lookback period
+    base_fires = random.randint(2, 6) if not has_anomaly else random.randint(0, 2)
+
+    for day_offset in range(days):
+        current_date = dt.now(timezone.utc) - timedelta(days=day_offset)
+        date_str = current_date.strftime("%Y-%m-%d")
+
+        # Time-of-day variation: more fires during day (D) than night (N)
+        num_fires_today = base_fires
+
+        # Add some variation day-to-day
+        num_fires_today += random.randint(-1, 1)
+        num_fires_today = max(0, num_fires_today)
+
+        for _ in range(num_fires_today):
+            # Day/night split: 70% day, 30% night
+            daynight = "D" if random.random() < 0.7 else "N"
+
+            # Thermal signatures are typically stronger during day
+            if daynight == "D":
+                brightness = round(random.uniform(320, 520), 1)
+                confidence = random.choice(["nominal", "high", "high"])
+            else:
+                brightness = round(random.uniform(250, 380), 1)
+                confidence = random.choice(["low", "nominal", "nominal"])
+
+            fires.append({
+                "lat": round(random.uniform(south, north), 4),
+                "lon": round(random.uniform(west, east), 4),
+                "brightness": brightness,
+                "confidence": confidence,
+                "frp": round(random.uniform(8, 65), 1),  # Fire Radiative Power
+                "acq_date": date_str,
+                "acq_time": f"{random.randint(0, 23):02d}{random.randint(0, 59):02d}",
+                "satellite": random.choice(["VIIRS_SNPP", "VIIRS_NOAA20", "MODIS"]),
+                "daynight": daynight,
+            })
 
     return {
         "status": "synthetic",
@@ -269,6 +303,7 @@ def _generate_synthetic_firms(bbox: str, days: int) -> Dict:
         "days": days,
         "count": len(fires),
         "fires": fires,
+        "anomaly": has_anomaly,
         "warning": "Data is synthetic. Set NASA_FIRMS_MAP_KEY for real satellite data.",
     }
 
