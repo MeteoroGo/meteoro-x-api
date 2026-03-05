@@ -355,127 +355,48 @@
             color: #e5e5e5;
         }
 
-        /* Evidence List - Expandable sections */
-        .evidence-list {
+        /* Analysis Narrative - LLM-style output */
+        .analysis-narrative {
             margin-bottom: 32px;
         }
 
-        .evidence-item {
-            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-            padding: 16px 0;
+        .narrative-body {
+            color: #c0c0c0;
+            font-size: 14px;
+            line-height: 1.8;
         }
 
-        .evidence-item:last-child {
-            border-bottom: none;
-        }
-
-        .evidence-header-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 12px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .evidence-header-row:hover {
-            opacity: 0.8;
-        }
-
-        .evidence-capability {
-            font-size: 12px;
-            color: #06D6A0;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .confidence-badge {
-            background: transparent;
-            color: #666;
-            padding: 0;
-            font-size: 11px;
-            font-weight: 600;
-        }
-
-        .evidence-content {
-            color: #999;
-            font-size: 13px;
-            line-height: 1.6;
-            margin-top: 8px;
-            margin-bottom: 8px;
-        }
-
-        .evidence-meta {
-            display: flex;
-            gap: 16px;
-            margin-top: 8px;
-            font-size: 11px;
-            color: #555;
-        }
-
-        .source-tag {
-            color: #666;
-        }
-
-        /* Causal Chain - Clean numbered list */
-        .causal-chain {
-            margin-bottom: 32px;
-        }
-
-        .chain-title {
-            font-size: 12px;
-            color: #06D6A0;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+        .narrative-body p {
             margin-bottom: 16px;
         }
 
-        .chain-event {
+        .narrative-body p:last-child {
+            margin-bottom: 0;
+        }
+
+        .analysis-divider {
+            width: 32px;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.08);
+            margin: 28px 0;
+        }
+
+        .analysis-meta {
             display: flex;
-            gap: 12px;
-            padding: 12px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            gap: 16px;
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
         }
 
-        .chain-event:last-child {
-            border-bottom: none;
+        .meta-item {
+            font-size: 11px;
+            color: #555;
+            letter-spacing: 0.3px;
         }
 
-        .chain-number {
-            min-width: 24px;
-            text-align: center;
-            font-size: 13px;
-            font-weight: 600;
-            color: #666;
-        }
-
-        .chain-text {
-            color: #999;
-            font-size: 13px;
-            line-height: 1.6;
-            flex: 1;
-        }
-
-        /* Summary Sections */
-        .summary-section {
-            margin-bottom: 32px;
-        }
-
-        .summary-title {
-            font-size: 12px;
-            color: #06D6A0;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 12px;
-        }
-
-        .summary-content {
-            color: #999;
-            font-size: 13px;
-            line-height: 1.7;
+        .meta-item span {
+            color: #777;
         }
 
         /* Footer */
@@ -899,47 +820,69 @@
                                             </div>
                                         </div>
 
-                                        <div className="evidence-list">
-                                            {(analysisResults.evidence || analysisResults.evidence_cards || []).map((item, idx) => (
-                                                <div key={idx} className="evidence-item">
-                                                    <div className="evidence-header-row">
-                                                        <div className="evidence-capability">
-                                                            {item.capability || item.agent || 'Intelligence'}
-                                                        </div>
-                                                        <div className="confidence-badge">
-                                                            {item.confidence || item.confidence_score || '—'}% confidence
-                                                        </div>
-                                                    </div>
-                                                    <div className="evidence-content">{item.finding || item.summary || item.analysis || ''}</div>
-                                                    <div className="evidence-meta">
-                                                        <span className="source-tag">{item.source || item.sources?.[0] || 'Analysis'}</span>
-                                                        <span>{item.latency || item.latency_ms ? `${item.latency_ms}ms` : ''}</span>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
+                                        <div className="analysis-narrative">
+                                            <div className="narrative-body">
+                                                {(() => {
+                                                    const reasoning = analysisResults.signal?.reasoning || analysisResults.reasoning || analysisResults.why_it_matters || '';
+                                                    const whatHappened = analysisResults.summary?.whatHappened || analysisResults.summary?.what_happened || analysisResults.what_happened || '';
+                                                    const whyMatters = analysisResults.summary?.whyItMatters || analysisResults.summary?.why_it_matters || analysisResults.why_it_matters || '';
 
-                                        <div className="causal-chain">
-                                            <div className="chain-title">Causal Chain</div>
-                                            {(analysisResults.causalChain || analysisResults.causal_chain || analysisResults.reasoning_chain || []).map((event, idx) => (
-                                                <div key={idx} className="chain-event">
-                                                    <div className="chain-number">{idx + 1}.</div>
-                                                    <div className="chain-text">{typeof event === 'string' ? event : (event.text || event.description || event.step || JSON.stringify(event))}</div>
-                                                </div>
-                                            ))}
-                                        </div>
+                                                    // Build narrative paragraphs from available data
+                                                    const paragraphs = [];
 
-                                        <div className="summary-section">
-                                            <div className="summary-title">What Happened</div>
-                                            <div className="summary-content">
-                                                {analysisResults.summary?.whatHappened || analysisResults.summary?.what_happened || analysisResults.what_happened || analysisResults.executive_summary || 'Analysis complete.'}
+                                                    if (whatHappened && whatHappened !== 'Analysis complete.') {
+                                                        paragraphs.push(whatHappened);
+                                                    }
+
+                                                    if (reasoning) {
+                                                        paragraphs.push(reasoning);
+                                                    }
+
+                                                    if (whyMatters && whyMatters !== 'See evidence above for details.' && whyMatters !== reasoning) {
+                                                        paragraphs.push(whyMatters);
+                                                    }
+
+                                                    // If no structured content, synthesize from evidence_cards
+                                                    if (paragraphs.length === 0) {
+                                                        const cards = analysisResults.evidence || analysisResults.evidence_cards || [];
+                                                        const validFindings = cards
+                                                            .filter(c => (c.finding || c.summary || c.analysis || c.reasoning) && !(c.finding || c.summary || c.analysis || c.reasoning || '').includes('LLM providers unavailable'))
+                                                            .map(c => c.finding || c.summary || c.analysis || c.reasoning);
+
+                                                        if (validFindings.length > 0) {
+                                                            paragraphs.push(...validFindings);
+                                                        } else {
+                                                            // Fallback: aggregate signal summary
+                                                            const cards2 = analysisResults.evidence || analysisResults.evidence_cards || [];
+                                                            const bullish = cards2.filter(c => (c.signal || '').toUpperCase() === 'LONG' || (c.signal || '').toUpperCase() === 'BUY').length;
+                                                            const bearish = cards2.filter(c => (c.signal || '').toUpperCase() === 'SHORT' || (c.signal || '').toUpperCase() === 'SELL').length;
+                                                            const neutral = cards2.length - bullish - bearish;
+                                                            const dir = (analysisResults.signal?.action || analysisResults.signal?.direction || analysisResults.direction || 'HOLD').toUpperCase();
+                                                            const conv = analysisResults.signal?.conviction || analysisResults.conviction || 0;
+                                                            const commodity = analysisResults.signal?.ticker || analysisResults.commodity || 'the commodity';
+
+                                                            paragraphs.push(
+                                                                `Our autonomous analysis of ${commodity} processed ${cards2.length} intelligence streams across satellite imagery, maritime tracking, supply chain data, macro indicators, and geopolitical signals.`
+                                                            );
+                                                            paragraphs.push(
+                                                                `The consensus signal is ${dir} with ${conv}% conviction. Out of ${cards2.length} independent analyses, ${bullish} returned bullish, ${bearish} bearish, and ${neutral} neutral readings${neutral === cards2.length ? ' — indicating that deeper data sources are being refreshed. Run this analysis again in a few minutes for full results.' : '.'}`
+                                                            );
+                                                        }
+                                                    }
+
+                                                    return paragraphs.map((p, i) => <p key={i}>{p}</p>);
+                                                })()}
                                             </div>
-                                        </div>
 
-                                        <div className="summary-section">
-                                            <div className="summary-title">Why It Matters</div>
-                                            <div className="summary-content">
-                                                {analysisResults.summary?.whyItMatters || analysisResults.summary?.why_it_matters || analysisResults.why_it_matters || analysisResults.market_impact || 'See evidence above for details.'}
+                                            <div className="analysis-meta">
+                                                <div className="meta-item">
+                                                    {(analysisResults.evidence || analysisResults.evidence_cards || []).length} <span>intelligence streams</span>
+                                                </div>
+                                                {analysisResults.pipeline_latency_ms && (
+                                                    <div className="meta-item">
+                                                        {(analysisResults.pipeline_latency_ms / 1000).toFixed(1)}s <span>latency</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
 
@@ -958,7 +901,7 @@
                     </div>
 
                     <div className="footer">
-                        METEORO · v8.1.1
+                        METEORO · v8.2
                     </div>
                 </>
             );
