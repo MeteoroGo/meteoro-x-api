@@ -1,20 +1,25 @@
 #!/usr/bin/env python3
 """
 METEORO X v7.2 — MULTI-MODEL ROUTER + RATE LIMITER
-Multi-Model Router | Dynamic Agent Routing | Retry + Backoff
+Multi-Model Router | Dynamic Agent Routing | Automatic Provider Detection | Retry + Backoff
 
-STACK ACTIVO:
-  Claude Haiku 3.5  -> Sintesis, coordinacion, decisiones (Anthropic) [PENDIENTE - consola caida]
-  DeepSeek V3       -> Razonamiento profundo, quant, China/Mandarin, analisis pesado
-  Gemini 2.0 Flash  -> Busqueda web, grounding, datos en tiempo real (GRATIS, 15 RPM limit)
-  Kimi/Moonshot     -> DESHABILITADO (requiere telefono chino para registro)
+ARCHITECTURE:
+  Dynamic provider detection: Automatically detects available API keys at startup
+  Ideal routing: Routes each agent to its optimal model based on specialization
+  Graceful fallback: Routes to any available provider if primary is unavailable
+
+SUPPORTED PROVIDERS (availability depends on configured API keys):
+  - Anthropic models (synthesis, coordination, risk analysis)
+  - DeepSeek V3 (quantitative analysis, deep reasoning)
+  - Kimi/Moonshot (Asian markets, multi-language support)
+  - Google Gemini (web search, real-time grounding)
 
 RATE LIMITING:
-  Gemini free tier = 15 RPM. We limit to 3 concurrent calls + retry on 429.
-  DeepSeek needs credits loaded ($5 min at platform.deepseek.com).
-  All agents fall through to Gemini via fallback chain until other providers are funded.
+  Each provider enforces request-level rate limits.
+  Swarm orchestrates agent sequencing with inter-request delays.
+  Fallback chains provide resilience when primary provider is unavailable.
 
-Costo objetivo por analisis completo (sistema agentico): $0.03-0.08
+Target cost per analysis cycle (agentic system): $0.03-0.08
 """
 
 import os
@@ -121,50 +126,110 @@ MODELS: Dict[str, ModelProfile] = {
 
 # ═══════════════════════════════════════════════════════════════
 # AGENT → MODEL ROUTING
-# Currently ALL agents route to gemini-flash (only working provider)
-# DeepSeek: 402 Payment Required (needs $5 credits)
-# Anthropic: API key not configured yet
-# Once funded, re-route agents to their ideal models.
+# Ideal routing map: Each agent routed to its optimal model.
+# Availability determined by configured API keys at runtime.
+# Automatic fallback ensures graceful degradation if primary model unavailable.
 # ═══════════════════════════════════════════════════════════════
-AGENT_MODEL_MAP: Dict[str, str] = {
-    "satellite_recon":       "gemini-flash",
-    "maritime_intel":        "gemini-flash",
-    "supply_chain_mapper":   "gemini-flash",
-    "latam_osint":           "gemini-flash",
-    "china_demand_oracle":   "gemini-flash",
+AGENT_MODEL_MAP_IDEAL = {
+    "satellite_recon":       "claude-haiku",
+    "maritime_intel":        "claude-haiku",
+    "supply_chain_mapper":   "deepseek-v3",
+    "latam_osint":           "claude-haiku",
+    "china_demand_oracle":   "deepseek-v3",
     "geopolitical_risk":     "gemini-flash",
-    "macro_regime":          "gemini-flash",
-    "quant_alpha":           "gemini-flash",
-    "sentiment_flow":        "gemini-flash",
-    "risk_guardian":         "gemini-flash",
-    "execution_engine":      "gemini-flash",
-    "counterintelligence":   "gemini-flash",
-    "commander":             "gemini-flash",
+    "macro_regime":          "deepseek-v3",
+    "quant_alpha":           "deepseek-v3",
+    "sentiment_flow":        "claude-haiku",
+    "risk_guardian":         "claude-haiku",
+    "execution_engine":      "claude-haiku",
+    "counterintelligence":   "deepseek-v3",
+    "commander":             "claude-haiku",
 }
-
-# IDEAL routing (re-enable when providers are funded):
-# AGENT_MODEL_MAP_IDEAL = {
-#     "satellite_recon":       "claude-haiku",
-#     "maritime_intel":        "claude-haiku",
-#     "supply_chain_mapper":   "deepseek-v3",
-#     "latam_osint":           "claude-haiku",
-#     "china_demand_oracle":   "deepseek-v3",  # DeepSeek = Chinese model
-#     "geopolitical_risk":     "gemini-flash",
-#     "macro_regime":          "deepseek-v3",
-#     "quant_alpha":           "deepseek-v3",
-#     "sentiment_flow":        "claude-haiku",
-#     "risk_guardian":         "claude-haiku",
-#     "execution_engine":      "claude-haiku",
-#     "counterintelligence":   "deepseek-v3",
-#     "commander":             "claude-haiku",
-# }
 
 FALLBACK_CHAIN: Dict[str, List[str]] = {
-    "claude-haiku":  ["deepseek-v3", "gemini-flash"],
-    "deepseek-v3":   ["claude-haiku", "gemini-flash"],
-    "kimi-v1":       ["deepseek-v3", "claude-haiku"],
-    "gemini-flash":  ["claude-haiku", "deepseek-v3"],
+    "claude-haiku":  ["deepseek-v3", "gemini-flash", "kimi-v1"],
+    "deepseek-v3":   ["claude-haiku", "gemini-flash", "kimi-v1"],
+    "kimi-v1":       ["deepseek-v3", "claude-haiku", "gemini-flash"],
+    "gemini-flash":  ["claude-haiku", "deepseek-v3", "kimi-v1"],
 }
+
+
+# ═══════════════════════════════════════════════════════════════
+# PROVIDER DETECTION & DYNAMIC ROUTING
+# ═══════════════════════════════════════════════════════════════
+
+def _get_available_providers() -> set:
+    """
+    Detect which providers are available based on configured API keys.
+
+    Returns:
+        set: Provider enum values ("anthropic", "deepseek", "kimi", "gemini")
+             for which API keys are configured.
+    """
+    available = set()
+    for model_key, profile in MODELS.items():
+        api_key = os.getenv(profile.api_key_env, "").strip()
+        if api_key:
+            available.add(profile.provider.value)
+    return available
+
+
+def _get_available_models() -> set:
+    """
+    Detect which models are available based on configured API keys.
+
+    Returns:
+        set: Model keys (e.g., "claude-haiku", "deepseek-v3") for which
+             API keys are configured.
+    """
+    available = set()
+    for model_key, profile in MODELS.items():
+        api_key = os.getenv(profile.api_key_env, "").strip()
+        if api_key:
+            available.add(model_key)
+    return available
+
+
+def get_active_routing() -> Dict[str, str]:
+    """
+    Build active routing map based on available providers.
+
+    For each agent, attempts to route to its ideal model.
+    If ideal model is unavailable, falls back to any available model.
+    If no models available, defaults to "gemini-flash" for graceful degradation.
+
+    Returns:
+        dict: Agent name -> model key mapping reflecting current availability.
+    """
+    available_models = _get_available_models()
+    active_map = {}
+
+    for agent_name, ideal_model in AGENT_MODEL_MAP_IDEAL.items():
+        # Use ideal model if available
+        if ideal_model in available_models:
+            active_map[agent_name] = ideal_model
+        else:
+            # Fall back to first available model in fallback chain
+            fallback_chain = FALLBACK_CHAIN.get(ideal_model, [])
+            fallback_found = None
+            for fallback_model in fallback_chain:
+                if fallback_model in available_models:
+                    fallback_found = fallback_model
+                    break
+
+            # Final fallback: use any available model (prefer gemini-flash for stability)
+            if fallback_found:
+                active_map[agent_name] = fallback_found
+            elif "gemini-flash" in available_models:
+                active_map[agent_name] = "gemini-flash"
+            elif available_models:
+                # Last resort: pick first available model
+                active_map[agent_name] = next(iter(available_models))
+            else:
+                # No models available: default to gemini-flash (may fail gracefully)
+                active_map[agent_name] = "gemini-flash"
+
+    return active_map
 
 
 @dataclass
@@ -295,10 +360,24 @@ async def call_llm(
     model_override: Optional[str] = None,
 ) -> LLMResponse:
     """
-    Call LLM with automatic fallback chain + retry on 429 rate limits.
-    Uses per-provider semaphores to limit concurrent calls.
+    Call LLM with automatic routing, fallback chain, and error handling.
+
+    Uses active routing map (which detects available providers) as the primary
+    routing decision. Supports model override for testing or special cases.
+    Falls back through provider chain if primary model is unavailable.
+
+    Args:
+        agent_name: Name of the calling agent
+        system_prompt: System-level instructions for the model
+        user_message: User message to process
+        model_override: Optional model key to override routing (for testing)
+
+    Returns:
+        LLMResponse: Model response with usage metrics and fallback tracking
     """
-    primary_key = model_override or AGENT_MODEL_MAP.get(agent_name, "claude-haiku")
+    # Get active routing based on available providers
+    active_routing = get_active_routing()
+    primary_key = model_override or active_routing.get(agent_name, "gemini-flash")
     chain = [primary_key] + FALLBACK_CHAIN.get(primary_key, [])
 
     last_error = None
@@ -347,7 +426,17 @@ async def call_llm(
 
 
 def get_model_for_agent(agent_name: str) -> str:
-    return AGENT_MODEL_MAP.get(agent_name, "claude-haiku")
+    """
+    Get the active model assignment for an agent based on current provider availability.
+
+    Args:
+        agent_name: Name of the agent
+
+    Returns:
+        str: Model key (e.g., "claude-haiku", "deepseek-v3") currently assigned to this agent
+    """
+    active_routing = get_active_routing()
+    return active_routing.get(agent_name, "gemini-flash")
 
 def get_cost_summary() -> dict:
     return cost_tracker.summary()
