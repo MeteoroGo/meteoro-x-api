@@ -3,12 +3,13 @@
 METEORO X v7.0 — MULTI-MODEL ROUTER
 4 Cerebros Cognitivos | Enrutamiento Dinamico por Agente
 
-STACK:
-  Claude Haiku 3.5  -> Sintesis, coordinacion, decisiones (Anthropic)
-  DeepSeek V3       -> Razonamiento profundo, quant, analisis pesado
-  Kimi/Moonshot     -> Inteligencia China, Mandarin, demanda asiatica
-  Gemini 2.0 Flash  -> Busqueda web, grounding, datos en tiempo real
+STACK ACTIVO:
+  Claude Haiku 3.5  -> Sintesis, coordinacion, decisiones (Anthropic) [PENDIENTE - consola caida]
+  DeepSeek V3       -> Razonamiento profundo, quant, China/Mandarin, analisis pesado
+  Gemini 2.0 Flash  -> Busqueda web, grounding, datos en tiempo real (GRATIS)
+  Kimi/Moonshot     -> DESHABILITADO (requiere telefono chino para registro)
 
+DeepSeek cubre China Demand Oracle (SA-05) - es modelo chino, habla mandarin nativo.
 Costo objetivo por analisis completo (12 agentes): $0.03-0.08
 """
 
@@ -105,7 +106,7 @@ AGENT_MODEL_MAP: Dict[str, str] = {
     "maritime_intel":        "claude-haiku",
     "supply_chain_mapper":   "deepseek-v3",
     "latam_osint":           "claude-haiku",
-    "china_demand_oracle":   "kimi-v1",
+    "china_demand_oracle":   "deepseek-v3",  # DeepSeek es chino, habla mandarin nativo
     "geopolitical_risk":     "gemini-flash",
     "macro_regime":          "deepseek-v3",
     "quant_alpha":           "deepseek-v3",
