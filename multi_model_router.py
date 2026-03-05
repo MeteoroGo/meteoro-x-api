@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 """
-METEORO X v7.0 — MULTI-MODEL ROUTER
-4 Cerebros Cognitivos | Enrutamiento Dinamico por Agente
+METEORO X v7.2 — MULTI-MODEL ROUTER + RATE LIMITER
+4 Cerebros Cognitivos | Enrutamiento Dinamico por Agente | Retry + Backoff
 
 STACK ACTIVO:
   Claude Haiku 3.5  -> Sintesis, coordinacion, decisiones (Anthropic) [PENDIENTE - consola caida]
   DeepSeek V3       -> Razonamiento profundo, quant, China/Mandarin, analisis pesado
-  Gemini 2.0 Flash  -> Busqueda web, grounding, datos en tiempo real (GRATIS)
+  Gemini 2.0 Flash  -> Busqueda web, grounding, datos en tiempo real (GRATIS, 15 RPM limit)
   Kimi/Moonshot     -> DESHABILITADO (requiere telefono chino para registro)
 
-DeepSeek cubre China Demand Oracle (SA-05) - es modelo chino, habla mandarin nativo.
+RATE LIMITING:
+  Gemini free tier = 15 RPM. We limit to 3 concurrent calls + retry on 429.
+  DeepSeek needs credits loaded ($5 min at platform.deepseek.com).
+  All agents fall through to Gemini via fallback chain until other providers are funded.
+
 Costo objetivo por analisis completo (12 agentes): $0.03-0.08
 """
 
@@ -17,14 +21,41 @@ import os
 import json
 import time
 import asyncio
+import logging
 from dataclasses import dataclass, field
 from typing import Dict, Optional, List, Any
 from enum import Enum
+
+logger = logging.getLogger("meteoro.router")
 
 try:
     import httpx
 except ImportError:
     httpx = None
+
+# ═══════════════════════════════════════════════════════════════
+# RATE LIMITING — Prevent 429 errors on free tier APIs
+# ═══════════════════════════════════════════════════════════════
+
+# Max concurrent calls per provider (Gemini free = 15 RPM, so ~3 concurrent is safe)
+_provider_semaphores: Dict[str, asyncio.Semaphore] = {}
+PROVIDER_CONCURRENCY = {
+    "gemini": 3,      # Gemini free tier: 15 RPM → max 3 concurrent
+    "deepseek": 5,    # DeepSeek: generous limits when funded
+    "anthropic": 5,   # Anthropic: standard rate
+    "kimi": 2,        # Disabled but just in case
+}
+
+MAX_RETRIES = 3
+RETRY_BASE_DELAY = 2.0  # seconds, doubles each retry (2s, 4s, 8s)
+
+
+def _get_semaphore(provider: str) -> asyncio.Semaphore:
+    """Get or create a semaphore for a provider."""
+    if provider not in _provider_semaphores:
+        limit = PROVIDER_CONCURRENCY.get(provider, 3)
+        _provider_semaphores[provider] = asyncio.Semaphore(limit)
+    return _provider_semaphores[provider]
 
 
 class ModelProvider(Enum):
@@ -252,6 +283,10 @@ async def call_llm(
     user_message: str,
     model_override: Optional[str] = None,
 ) -> LLMResponse:
+    """
+    Call LLM with automatic fallback chain + retry on 429 rate limits.
+    Uses per-provider semaphores to limit concurrent calls.
+    """
     primary_key = model_override or AGENT_MODEL_MAP.get(agent_name, "claude-haiku")
     chain = [primary_key] + FALLBACK_CHAIN.get(primary_key, [])
 
@@ -267,27 +302,55 @@ async def call_llm(
         if not caller:
             continue
 
-        t0 = time.time()
-        try:
-            result = await caller(profile, system_prompt, user_message)
-            latency = int((time.time() - t0) * 1000)
-            inp = result.get("input_tokens", 0)
-            out = result.get("output_tokens", 0)
-            cost = (inp * profile.cost_input_per_m + out * profile.cost_output_per_m) / 1_000_000
-            cost_tracker.record(model_key, cost)
-            return LLMResponse(
-                content=result["content"],
-                model_used=model_key,
-                provider=profile.provider.value,
-                input_tokens=inp,
-                output_tokens=out,
-                cost_usd=cost,
-                latency_ms=latency,
-                fallback_used=(model_key != primary_key),
-            )
-        except Exception as e:
-            last_error = e
-            continue
+        # Get provider semaphore for rate limiting
+        sem = _get_semaphore(profile.provider.value)
+
+        # Retry loop for 429 errors
+        for attempt in range(MAX_RETRIES):
+            t0 = time.time()
+            try:
+                async with sem:  # Limit concurrent calls per provider
+                    result = await caller(profile, system_prompt, user_message)
+
+                latency = int((time.time() - t0) * 1000)
+                inp = result.get("input_tokens", 0)
+                out = result.get("output_tokens", 0)
+                cost = (inp * profile.cost_input_per_m + out * profile.cost_output_per_m) / 1_000_000
+                cost_tracker.record(model_key, cost)
+                return LLMResponse(
+                    content=result["content"],
+                    model_used=model_key,
+                    provider=profile.provider.value,
+                    input_tokens=inp,
+                    output_tokens=out,
+                    cost_usd=cost,
+                    latency_ms=latency,
+                    fallback_used=(model_key != primary_key),
+                )
+
+            except Exception as e:
+                error_str = str(e)
+                last_error = e
+
+                # Check if it's a rate limit error (429) — retry with backoff
+                if "429" in error_str or "rate" in error_str.lower():
+                    delay = RETRY_BASE_DELAY * (2 ** attempt)  # 2s, 4s, 8s
+                    logger.warning(
+                        f"[{agent_name}] {model_key} rate limited (429), "
+                        f"retry {attempt+1}/{MAX_RETRIES} in {delay}s"
+                    )
+                    print(f"  [{agent_name}] Rate limited on {model_key}, waiting {delay}s...")
+                    await asyncio.sleep(delay)
+                    continue  # Retry same model
+
+                # Check if it's a payment error (402) — skip to next model
+                if "402" in error_str or "payment" in error_str.lower():
+                    logger.warning(f"[{agent_name}] {model_key} payment required (402), skipping")
+                    break  # Skip to next model in chain
+
+                # Other error — skip to next model
+                logger.error(f"[{agent_name}] {model_key} error: {error_str[:100]}")
+                break  # Skip to next model in chain
 
     return LLMResponse(
         content=json.dumps({

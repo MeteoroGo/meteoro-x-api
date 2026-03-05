@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ╔══════════════════════════════════════════════════════════════════╗
-║  METEORO SWARM v7.1 — REAL DATA + REAL LLM ANALYSIS              ║
+║  METEORO SWARM v7.2 — REAL DATA + RATE-LIMITED LLM               ║
 ║  12 Super Agents | DeepSeek + Gemini | Real Market Data           ║
 ║                                                                    ║
 ║  FLOW:                                                            ║
@@ -236,12 +236,12 @@ class SwarmSignal:
 
 class MeteorSwarm:
     """
-    Meteoro Swarm v7.1 — Real Data + Real LLM Analysis.
+    Meteoro Swarm v7.2 — Real Data + Real LLM Analysis.
     12 Super Agents with DeepSeek + Gemini doing actual analysis.
     """
 
-    TIME_BUDGET_MS = 30_000  # 30 seconds (LLM calls take longer)
-    AGENT_TIMEOUT_MS = 15_000  # 15 seconds per agent
+    TIME_BUDGET_MS = 60_000  # 60 seconds (batched LLM calls + rate limit delays)
+    AGENT_TIMEOUT_MS = 20_000  # 20 seconds per agent (includes retry wait)
 
     def __init__(self):
         self.agent_configs = AGENT_CONFIGS
@@ -258,7 +258,7 @@ class MeteorSwarm:
         session_id = str(uuid.uuid4().hex[:8])
 
         print(f"\n{'='*70}")
-        print(f"METEORO SWARM v7.1 — REAL DATA ANALYSIS — {session_id}")
+        print(f"METEORO SWARM v7.2 — REAL DATA + RATE LIMITED — {session_id}")
         print(f"Commodity: {commodity}")
         print(f"{'='*70}\n")
 
@@ -312,26 +312,44 @@ class MeteorSwarm:
 
         all_results: List[SuperAgentResult] = []
 
-        # Run agents 1-9 in parallel (intelligence + analysis)
-        print("\n[SWARM] Running 9 intelligence agents in parallel...")
-        agent_tasks = []
-        for config in self.agent_configs[:9]:  # Agents 1-9
-            agent_tasks.append(
-                self._run_llm_agent(config, commodity, data_str, context)
-            )
+        # Run agents 1-9 in BATCHES of 3 (avoid rate limiting LLM providers)
+        # Gemini free tier = 15 RPM, so 3 concurrent + stagger is safe
+        BATCH_SIZE = 3
+        BATCH_DELAY = 1.5  # seconds between batches
 
-        parallel_results = await asyncio.gather(*agent_tasks, return_exceptions=True)
-        for r in parallel_results:
-            if isinstance(r, Exception):
-                print(f"  [Agent ERROR] {r}")
-                all_results.append(SuperAgentResult(
-                    agent_id=0, agent_name="Failed Agent",
-                    signal=Signal.NEUTRAL, confidence=0,
-                    reasoning=f"Error: {str(r)[:100]}",
-                    sources_analyzed=0,
-                ))
-            else:
-                all_results.append(r)
+        intelligence_agents = self.agent_configs[:9]  # Agents 1-9
+        num_batches = (len(intelligence_agents) + BATCH_SIZE - 1) // BATCH_SIZE
+
+        for batch_idx in range(num_batches):
+            batch_start = batch_idx * BATCH_SIZE
+            batch_end = min(batch_start + BATCH_SIZE, len(intelligence_agents))
+            batch = intelligence_agents[batch_start:batch_end]
+            batch_names = [c["name"] for c in batch]
+
+            print(f"\n[SWARM] Batch {batch_idx+1}/{num_batches}: {', '.join(batch_names)}")
+
+            batch_tasks = [
+                self._run_llm_agent(config, commodity, data_str, context)
+                for config in batch
+            ]
+
+            batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
+            for r in batch_results:
+                if isinstance(r, Exception):
+                    print(f"  [Agent ERROR] {r}")
+                    all_results.append(SuperAgentResult(
+                        agent_id=0, agent_name="Failed Agent",
+                        signal=Signal.NEUTRAL, confidence=0,
+                        reasoning=f"Error: {str(r)[:100]}",
+                        sources_analyzed=0,
+                    ))
+                else:
+                    all_results.append(r)
+
+            # Delay between batches to respect rate limits
+            if batch_idx < num_batches - 1:
+                print(f"  [RATE LIMIT] Waiting {BATCH_DELAY}s before next batch...")
+                await asyncio.sleep(BATCH_DELAY)
 
         # ─── STEP 3: RISK GUARDIAN (with all previous results) ────
         print("\n[DELTA] Risk Guardian analyzing...")
@@ -595,7 +613,7 @@ Do NOT invent or hallucinate data. Base your analysis on what you see above."""
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "swarm_name": "Meteoro Swarm v7.1",
+            "swarm_name": "Meteoro Swarm v7.2",
             "total_agents": len(self.agent_configs),
             "swarms": {
                 "alpha": ["Satellite Recon", "Maritime Intel", "Supply Chain Mapper"],
