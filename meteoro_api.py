@@ -4,7 +4,7 @@ METEORO X v7.0 — API Server
 FastAPI server connecting the Meteoro Agent Swarm to the Lovable frontend.
 
 Endpoints:
-  POST /api/analyze       - Full swarm analysis (12 Super Agents)
+  POST /api/analyze       - Full agentic system analysis
   POST /api/swarm/analyze - Direct swarm endpoint
   GET  /api/health        - Server heartbeat
   GET  /api/macro         - Current macro snapshot
@@ -64,7 +64,7 @@ except Exception:
 
 app = FastAPI(
     title="Meteoro X — Agent Swarm API",
-    description="AI-Native Autonomous Hedge Fund | 12 Super Agents | 4 Cerebros",
+    description="AI-Native Autonomous Commodity Intelligence | Agentic System",
     version="7.0.0",
 )
 
@@ -211,7 +211,7 @@ async def analyze_endpoint(request: AnalyzeRequest):
                 "agent_details": [r.to_dict() for r in result.all_results],
                 "cost_usd": result.cost_usd,
                 "pipeline_latency_ms": latency_ms,
-                "what_happened": f"12 Super Agents analyzed {commodity}",
+                "what_happened": f"Agentic system analyzed {commodity}",
                 "why_it_matters": result.reasoning,
                 "evidence_cards": [
                     {
@@ -358,7 +358,7 @@ async def websocket_analyze(websocket: WebSocket):
             await websocket.send_json({
                 "type": "progress",
                 "stage": "swarm_init",
-                "message": f"Deploying 12 Super Agents on {commodity}...",
+                "message": f"Deploying agentic system on {commodity}...",
                 "progress": 5,
             })
 
@@ -379,7 +379,7 @@ async def websocket_analyze(websocket: WebSocket):
                             "conviction": result.conviction,
                             "reasoning": result.reasoning,
                         },
-                        "what_happened": f"12 Super Agents analyzed {commodity}",
+                        "what_happened": f"Agentic system analyzed {commodity}",
                         "why_it_matters": result.reasoning,
                         "evidence_cards": [
                             {"source": r.agent_name, "signal": r.signal.value, "confidence": r.confidence}
@@ -422,7 +422,7 @@ async def websocket_analyze(websocket: WebSocket):
 async def startup():
     print("=" * 60)
     print("  METEORO X v7.0 — Agent Swarm API")
-    print("  12 Super Agents | 4 Swarms | 4 Cerebros")
+    print("  Agentic System | Multi-Model Intelligence")
     print(f"  Swarm Available: {HAS_SWARM}")
     print(f"  Legacy Pipeline: {HAS_LEGACY}")
     print("=" * 60)

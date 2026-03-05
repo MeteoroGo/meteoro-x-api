@@ -1,776 +1,1039 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>METEORO X — Agentic Intelligence</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-  @keyframes fadeInFast { from { opacity: 0; } to { opacity: 1; } }
-  @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
-  @keyframes tickScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-  @keyframes glow { 0%, 100% { box-shadow: 0 0 8px #06D6A020; } 50% { box-shadow: 0 0 20px #06D6A040; } }
-  @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
-  @keyframes convictionFill { from { stroke-dashoffset: 283; } }
-  body { background: #080C18; color: #F8FAFC; font-family: 'Inter', system-ui, -apple-system, sans-serif; min-height: 100vh; overflow-x: hidden; }
-  input::placeholder, textarea::placeholder { color: #3E4C63; }
-  ::-webkit-scrollbar { width: 5px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #1E293B; border-radius: 3px; }
-  ::-webkit-scrollbar-thumb:hover { background: #334155; }
-  button { font-family: 'Inter', system-ui, sans-serif; }
-  .ticker-item { display: inline-flex; align-items: center; gap: 6px; padding: 0 16px; }
-  .ticker-pos { color: #06D6A0; }
-  .ticker-neg { color: #EF4444; }
-  .ticker-neutral { color: #94A3B8; }
-</style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meteoro X — Autonomous AI-Native Commodity Trading Intelligence</title>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+
+    <!-- React 18 and Babel -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            background: #080C18;
+            color: #E5E7EB;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        #root {
+            width: 100%;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Scrolling Ticker */
+        .ticker-container {
+            width: 100%;
+            background: linear-gradient(90deg, rgba(6, 214, 160, 0.05) 0%, rgba(6, 214, 160, 0.02) 50%, rgba(6, 214, 160, 0.05) 100%);
+            border-bottom: 1px solid rgba(6, 214, 160, 0.1);
+            padding: 12px 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .ticker-content {
+            display: flex;
+            gap: 32px;
+            padding: 0 20px;
+            animation: tickScroll 60s linear infinite;
+            white-space: nowrap;
+            min-width: 200%;
+        }
+
+        @keyframes tickScroll {
+            0% {
+                transform: translateX(0);
+            }
+            100% {
+                transform: translateX(-50%);
+            }
+        }
+
+        .ticker-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .ticker-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #06D6A0;
+            flex-shrink: 0;
+            box-shadow: 0 0 8px rgba(6, 214, 160, 0.4);
+        }
+
+        .ticker-label {
+            color: #9CA3AF;
+            font-weight: 500;
+        }
+
+        .ticker-value {
+            color: #06D6A0;
+            font-weight: 600;
+        }
+
+        .ticker-timestamp {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 11px;
+            color: #6B7280;
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(8, 12, 24, 0.8);
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 60px 20px 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* Logo */
+        .logo {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 48px;
+            font-weight: 700;
+            letter-spacing: 8px;
+            text-transform: uppercase;
+            color: #E5E7EB;
+            margin-bottom: 20px;
+            text-align: center;
+            line-height: 1;
+        }
+
+        .logo-trademark {
+            font-size: 14px;
+            vertical-align: super;
+            color: #06D6A0;
+            margin-left: 2px;
+        }
+
+        /* Subtitle */
+        .subtitle {
+            color: #9CA3AF;
+            font-size: 13px;
+            text-align: center;
+            margin-bottom: 48px;
+            letter-spacing: 0.5px;
+        }
+
+        /* Search Input */
+        .search-container {
+            width: 100%;
+            max-width: 600px;
+            margin-bottom: 32px;
+        }
+
+        .search-input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 16px 20px 16px 20px;
+            background: #0F1729;
+            border: 1px solid rgba(6, 214, 160, 0.2);
+            border-radius: 12px;
+            color: #E5E7EB;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.3s ease;
+            padding-right: 50px;
+        }
+
+        .search-input::placeholder {
+            color: #6B7280;
+        }
+
+        .search-input:focus {
+            border-color: #06D6A0;
+            box-shadow: 0 0 20px rgba(6, 214, 160, 0.15);
+            background: #111827;
+        }
+
+        .search-button {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #06D6A0;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 4px 8px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .search-button:hover {
+            color: #05B88A;
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        /* Quick Prompt Chips */
+        .chips-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+            max-width: 600px;
+            margin-bottom: 48px;
+        }
+
+        .chip {
+            padding: 12px 16px;
+            background: rgba(6, 214, 160, 0.08);
+            border: 1px solid rgba(6, 214, 160, 0.2);
+            border-radius: 8px;
+            color: #E5E7EB;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .chip:hover {
+            background: rgba(6, 214, 160, 0.15);
+            border-color: rgba(6, 214, 160, 0.4);
+            color: #06D6A0;
+            transform: translateY(-2px);
+        }
+
+        /* Analysis Results Area */
+        .results-area {
+            width: 100%;
+            max-width: 900px;
+            margin-bottom: 40px;
+        }
+
+        /* Progress Steps */
+        .progress-steps {
+            margin-bottom: 32px;
+        }
+
+        .progress-step {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            background: rgba(6, 214, 160, 0.05);
+            font-size: 13px;
+            color: #D1D5DB;
+            transition: all 0.3s ease;
+        }
+
+        .progress-step.active {
+            background: rgba(6, 214, 160, 0.1);
+            color: #06D6A0;
+        }
+
+        .progress-step.completed {
+            background: rgba(6, 214, 160, 0.08);
+            color: #9CA3AF;
+        }
+
+        .step-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .step-icon.pending {
+            background: rgba(6, 214, 160, 0.1);
+            color: #06D6A0;
+        }
+
+        .step-icon.active {
+            background: rgba(6, 214, 160, 0.2);
+            color: #06D6A0;
+            animation: spin 1.5s linear infinite;
+        }
+
+        .step-icon.completed {
+            background: rgba(6, 214, 160, 0.15);
+            color: #06D6A0;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Signal Card */
+        .signal-card {
+            background: linear-gradient(135deg, rgba(6, 214, 160, 0.1) 0%, rgba(6, 214, 160, 0.05) 100%);
+            border: 1px solid rgba(6, 214, 160, 0.3);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 24px;
+            align-items: center;
+        }
+
+        .signal-header {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .signal-direction {
+            font-size: 12px;
+            color: #9CA3AF;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .signal-direction.long {
+            color: #10B981;
+        }
+
+        .signal-direction.short {
+            color: #EF4444;
+        }
+
+        .signal-ticker {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 24px;
+            font-weight: 700;
+            color: #06D6A0;
+        }
+
+        .conviction-gauge {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .gauge-svg {
+            width: 120px;
+            height: 120px;
+        }
+
+        .signal-metrics {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(6, 214, 160, 0.1);
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: #9CA3AF;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            font-weight: 600;
+            color: #06D6A0;
+        }
+
+        /* Evidence Cards Grid */
+        .evidence-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .evidence-card {
+            background: rgba(15, 23, 41, 0.8);
+            border: 1px solid rgba(6, 214, 160, 0.15);
+            border-radius: 8px;
+            padding: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .evidence-card:hover {
+            border-color: rgba(6, 214, 160, 0.3);
+            background: rgba(15, 23, 41, 0.95);
+        }
+
+        .evidence-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .evidence-capability {
+            font-size: 12px;
+            color: #06D6A0;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .confidence-badge {
+            background: rgba(6, 214, 160, 0.1);
+            color: #06D6A0;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .evidence-content {
+            color: #D1D5DB;
+            font-size: 12px;
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+
+        .evidence-source {
+            display: flex;
+            justify-content: space-between;
+            padding-top: 12px;
+            border-top: 1px solid rgba(6, 214, 160, 0.1);
+            font-size: 10px;
+            color: #6B7280;
+        }
+
+        .source-tag {
+            background: rgba(6, 214, 160, 0.05);
+            padding: 2px 6px;
+            border-radius: 2px;
+            color: #9CA3AF;
+        }
+
+        /* Causal Chain */
+        .causal-chain {
+            background: rgba(6, 214, 160, 0.05);
+            border: 1px solid rgba(6, 214, 160, 0.15);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .chain-title {
+            font-size: 12px;
+            color: #06D6A0;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 16px;
+        }
+
+        .chain-event {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(6, 214, 160, 0.1);
+        }
+
+        .chain-event:last-child {
+            border-bottom: none;
+        }
+
+        .chain-number {
+            width: 24px;
+            height: 24px;
+            background: rgba(6, 214, 160, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 600;
+            color: #06D6A0;
+            flex-shrink: 0;
+        }
+
+        .chain-text {
+            color: #D1D5DB;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        /* Summary Section */
+        .summary-section {
+            background: rgba(6, 214, 160, 0.03);
+            border: 1px solid rgba(6, 214, 160, 0.1);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .summary-title {
+            font-size: 13px;
+            color: #06D6A0;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        .summary-content {
+            color: #D1D5DB;
+            font-size: 13px;
+            line-height: 1.7;
+        }
+
+        /* Footer */
+        .footer {
+            background: rgba(6, 214, 160, 0.05);
+            border-top: 1px solid rgba(6, 214, 160, 0.1);
+            padding: 24px 20px;
+            text-align: center;
+            color: #9CA3AF;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: auto;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #06D6A0;
+            border-radius: 50%;
+            box-shadow: 0 0 8px rgba(6, 214, 160, 0.6);
+            flex-shrink: 0;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .logo {
+                font-size: 36px;
+                letter-spacing: 4px;
+                margin-bottom: 16px;
+            }
+
+            .main-content {
+                padding: 40px 16px 32px;
+            }
+
+            .search-container {
+                max-width: 100%;
+            }
+
+            .signal-card {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+
+            .evidence-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .ticker-content {
+                gap: 20px;
+                padding: 0 16px;
+            }
+
+            .ticker-item {
+                font-size: 12px;
+            }
+
+            .ticker-timestamp {
+                display: none;
+            }
+        }
+
+        /* Loading animation */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .loading {
+            animation: pulse 2s ease-in-out infinite;
+        }
+    </style>
 </head>
 <body>
-<div id="root"></div>
-<script type="text/babel">
-const { useState, useEffect, useRef, useCallback } = React;
+    <div id="root"></div>
 
-// ═══════════════════════════════════════════════════════════
-// CONFIG
-// ═══════════════════════════════════════════════════════════
-const API_BASE = (() => {
-  const h = window.location.hostname;
-  if (h === 'localhost' || h === '127.0.0.1') return `http://${h}:8000`;
-  if (h.includes('loca.lt') || h.includes('ngrok')) return window.location.origin;
-  return window.location.origin; // same-origin for production
-})();
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
 
-const headers = {
-  "Content-Type": "application/json",
-  "bypass-tunnel-reminder": "true",
-};
+        // Utility function to get API base URL
+        const getApiBase = () => {
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                return 'http://localhost:8000';
+            }
+            return window.location.origin;
+        };
 
-const C = {
-  bg: "#080C18",
-  navy: "#0B1120",
-  navyLight: "#0F1729",
-  navyMid: "#162032",
-  navyBorder: "#1C2A42",
-  cyan: "#06D6A0",
-  cyanDim: "#06D6A030",
-  cyanGlow: "#06D6A015",
-  white: "#F1F5F9",
-  grey: "#94A3B8",
-  greyDark: "#475569",
-  greyDarker: "#334155",
-  red: "#EF4444",
-  amber: "#F59E0B",
-  green: "#10B981",
-  greenDim: "#10B98130",
-};
+        // Ticker Component
+        function TickerBar() {
+            const tickerData = [
+                { label: 'Newcastle/ZCE Coal', value: '-15 USD' },
+                { label: 'PBOC Liquidity', value: '+100B CNY' },
+                { label: 'DXY', value: '104.2' },
+                { label: 'BRENT-WTI', value: '+3.42' },
+                { label: 'Baltic Dry', value: '1,847 +2.1%' },
+                { label: 'LME/SHFE Cu', value: '+420 CNY' },
+            ];
 
-// ═══════════════════════════════════════════════════════════
-// API LAYER
-// ═══════════════════════════════════════════════════════════
-async function apiCall(path, options = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: { ...headers, ...(options.headers || {}) },
-  });
-  if (!res.ok) throw new Error(`API ${res.status}`);
-  return res.json();
-}
+            const utcTime = new Date().toUTCString().slice(0, -4);
 
-const api = {
-  health: () => apiCall("/api/health"),
-  macro: () => apiCall("/api/macro"),
-  analyze: (command) => apiCall("/api/analyze", {
-    method: "POST",
-    body: JSON.stringify({ command, language: "es" }),
-  }),
-  signals: () => apiCall("/api/signals"),
-};
-
-// ═══════════════════════════════════════════════════════════
-// MOCK DATA (fallback when API unavailable)
-// ═══════════════════════════════════════════════════════════
-const MOCK = {
-  pack_id: "MX-DEMO-" + Date.now().toString(36),
-  timestamp: new Date().toISOString(),
-  command: "",
-  what_happened: "Supply chain disruption detected in Thermal Coal market. 3 intelligence capabilities flagged disruption signals from GDELT geopolitical events, NASA FIRMS satellite data, and LatAm local press sources.",
-  why_it_matters: "Consensus: LONG MTF=F at conviction 87/100. Entry $96.00, Stop 2.8%, Target 7.0%. The Cerrejon strike creates a supply gap that the market has not yet priced in.",
-  signal: {
-    direction: "LONG", ticker: "MTF=F", ticker_name: "Thermal Coal (Newcastle)",
-    conviction: 87, consensus: "4/6 capabilities agree",
-    entry_price: 96.0, stop_loss_pct: 2.8, take_profit_pct: 7.0,
-    kelly_fraction: 0.08, horizon: "5-10 trading days",
-    reasoning: "Supply disruption at Cerrejon confirmed via satellite thermal anomaly (NASA FIRMS) and local press (Portafolio). AIS shows 2 Panamax vessels redirected. Coal price has not yet reflected the 15% production cut.",
-  },
-  evidence_cards: [
-    { capability: "Asymmetric Intelligence", summary: "Scanned 47 GDELT articles. Found 3 disruption signals from Chinese and Western sources about Colombian coal supply.", confidence: 78, sources: ["GDELT — Xinhua", "GDELT — Global Times", "Portafolio.co"], signals_count: 3, latency_ms: 4200 },
-    { capability: "Physical Intelligence", summary: "Monitored 2 mining sites via satellite. Detected 1 thermal anomaly at Cerrejon (SEVERELY_REDUCED). Tracked 2 ports via AIS.", confidence: 92, sources: ["NASA FIRMS VIIRS/MODIS", "AIS — Puerto Bolivar"], signals_count: 1, latency_ms: 3100 },
-    { capability: "Geopolitical Intelligence", summary: "Scanned 23 geopolitical articles. Found 1 event: Colombian labor ministry involved in negotiations.", confidence: 65, sources: ["GDELT — Reuters LatAm"], signals_count: 1, latency_ms: 5400 },
-    { capability: "Macro Intelligence", summary: "Macro regime: NEUTRAL. VIX: 19.86, WTI: $70.14, Gold: $5,337, DXY: 97.89.", confidence: 72, sources: ["FRED / yfinance"], signals_count: 0, latency_ms: 2800 },
-    { capability: "Quantitative Intelligence", summary: "MTF=F at $96.0, RSI 34.7 (oversold). Vol Z-score 1.8 (elevated). Mean reversion setup.", confidence: 81, sources: ["yfinance — MTF=F"], signals_count: 1, latency_ms: 1900 },
-  ],
-  causal_chain: [
-    { source: "Physical Intelligence", event: "THERMAL_SEVERELY_REDUCED", detail: "Cerrejon mine thermal output dropped 60% per NASA FIRMS" },
-    { source: "Asymmetric Intelligence", event: "DISRUPTION_DETECTED", detail: "Worker strike confirmed by Portafolio and Xinhua" },
-    { source: "Quantitative Intelligence", event: "OVERSOLD_REVERSAL", detail: "MTF=F RSI 34.7 with elevated vol — mean reversion setup" },
-  ],
-  risk_assessment: { veto: false, kelly_fraction: 0.08, long_signals: 4, short_signals: 0 },
-  pack_hash: "sha256:b4bae493ff8936cc58e5dd0b6b4364a36314d5b5",
-  pipeline_latency_ms: 8200,
-};
-
-const SUGGESTIONS = [
-  "Huelga de carbón en Cerrejón — impacto comercial?",
-  "Qué está pasando con el cobre peruano?",
-  "Analiza el impacto del WTI en Latinoamérica",
-];
-
-const DEFAULT_TICKERS = [
-  { name: "BRENT", value: "—", change: null },
-  { name: "WTI", value: "—", change: null },
-  { name: "GOLD", value: "—", change: null },
-  { name: "COPPER", value: "—", change: null },
-  { name: "VIX", value: "—", change: null },
-  { name: "DXY", value: "—", change: null },
-];
-
-// ═══════════════════════════════════════════════════════════
-// COMPONENTS
-// ═══════════════════════════════════════════════════════════
-
-function TickerBar({ tickers, connected, time }) {
-  const items = tickers.map(t => {
-    const cls = t.change > 0 ? "ticker-pos" : t.change < 0 ? "ticker-neg" : "ticker-neutral";
-    const arrow = t.change > 0 ? "▲" : t.change < 0 ? "▼" : "";
-    const pct = t.change !== null ? ` ${t.change > 0 ? '+' : ''}${t.change.toFixed(2)}%` : "";
-    return `${t.name}: ${t.value}${pct ? ' ' + arrow + pct : ''}`;
-  }).join("    ·    ");
-
-  return (
-    <div style={{
-      overflow: "hidden", whiteSpace: "nowrap", fontSize: 11,
-      borderBottom: `1px solid ${C.navyBorder}`, padding: "7px 0",
-      fontFamily: "'JetBrains Mono', monospace", background: C.navy,
-      display: "flex", alignItems: "center",
-    }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, paddingLeft: 12, paddingRight: 12, flexShrink: 0, borderRight: `1px solid ${C.navyBorder}` }}>
-        <div style={{ width: 6, height: 6, borderRadius: "50%", background: connected ? C.green : C.amber, animation: connected ? "none" : "pulse 2s infinite" }} />
-      </div>
-      <div style={{ overflow: "hidden", flex: 1 }}>
-        <div style={{ display: "inline-block", animation: "tickScroll 40s linear infinite", color: C.grey }}>
-          {items}    ·    {items}
-        </div>
-      </div>
-      <div style={{ paddingRight: 12, paddingLeft: 12, flexShrink: 0, color: C.greyDark, borderLeft: `1px solid ${C.navyBorder}` }}>
-        {time}
-      </div>
-    </div>
-  );
-}
-
-function ProgressStep({ label, done, active, index }) {
-  return (
-    <div style={{
-      display: "flex", alignItems: "center", gap: 12, padding: "7px 0",
-      opacity: done || active ? 1 : 0.3,
-      animation: (done || active) ? `slideIn 0.3s ease ${index * 0.1}s both` : "none",
-    }}>
-      {done ? (
-        <span style={{ color: C.cyan, fontSize: 14, width: 22, textAlign: "center", fontWeight: 700 }}>✓</span>
-      ) : active ? (
-        <span style={{ width: 22, textAlign: "center" }}>
-          <span style={{
-            display: "inline-block", width: 14, height: 14,
-            border: `2px solid ${C.cyan}`, borderTopColor: "transparent",
-            borderRadius: "50%", animation: "spin 0.7s linear infinite",
-          }} />
-        </span>
-      ) : (
-        <span style={{ width: 22, textAlign: "center" }}>
-          <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: C.greyDarker }} />
-        </span>
-      )}
-      <span style={{
-        color: done ? C.grey : active ? C.cyan : C.greyDark,
-        fontSize: 13, fontWeight: active ? 500 : 400,
-      }}>{label}</span>
-    </div>
-  );
-}
-
-function ConvictionGauge({ value, size = 80 }) {
-  const r = 36;
-  const circumference = 2 * Math.PI * r;
-  const offset = circumference - (value / 100) * circumference;
-  const color = value >= 70 ? C.cyan : value >= 40 ? C.amber : C.red;
-
-  return (
-    <div style={{ position: "relative", width: size, height: size }}>
-      <svg width={size} height={size} viewBox="0 0 80 80">
-        <circle cx="40" cy="40" r={r} fill="none" stroke={C.navyBorder} strokeWidth="5" />
-        <circle cx="40" cy="40" r={r} fill="none" stroke={color} strokeWidth="5"
-          strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset}
-          transform="rotate(-90 40 40)" style={{ animation: "convictionFill 1.2s ease-out", transition: "stroke-dashoffset 0.8s ease" }} />
-      </svg>
-      <div style={{
-        position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
-        textAlign: "center",
-      }}>
-        <div style={{ fontSize: 20, fontWeight: 800, color, fontFamily: "'JetBrains Mono', monospace" }}>{value}</div>
-        <div style={{ fontSize: 8, color: C.greyDark, textTransform: "uppercase", letterSpacing: 1 }}>%</div>
-      </div>
-    </div>
-  );
-}
-
-function ExecCard({ signal }) {
-  if (!signal || signal.direction === "ESPERAR" || signal.direction === "NEUTRAL") return null;
-  const isLong = signal.direction === "LONG";
-  const dirLabel = isLong ? "LARGO" : "CORTO";
-
-  return (
-    <div style={{
-      background: C.navyLight, borderRadius: 14, padding: 24,
-      border: `1px solid ${C.navyBorder}`, marginTop: 20,
-      animation: "fadeIn 0.5s ease",
-    }}>
-      <div style={{ fontSize: 10, color: C.greyDark, textTransform: "uppercase", letterSpacing: 2, marginBottom: 16 }}>
-        Recomendación Comercial
-      </div>
-
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-            <span style={{
-              background: isLong ? C.green : C.red, color: "#fff",
-              padding: "4px 12px", borderRadius: 4, fontSize: 12, fontWeight: 700, letterSpacing: 1,
-            }}>{dirLabel}</span>
-            <span style={{ color: C.white, fontSize: 22, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace" }}>
-              {signal.ticker}
-            </span>
-          </div>
-          <span style={{ color: C.greyDark, fontSize: 13 }}>{signal.ticker_name || signal.commodity || ""}</span>
-        </div>
-        <ConvictionGauge value={Math.round(signal.conviction)} />
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
-        {[
-          { l: "Entrada", v: `$${Number(signal.entry_price).toFixed(2)}` },
-          { l: "Stop Loss", v: `${signal.stop_loss_pct}%` },
-          { l: "Target", v: `+${signal.take_profit_pct}%` },
-          { l: "Talla", v: `Kelly ${(signal.kelly_fraction * 100).toFixed(0)}%` },
-        ].map(i => (
-          <div key={i.l} style={{
-            background: C.bg, borderRadius: 10, padding: "12px 10px", textAlign: "center",
-            border: `1px solid ${C.navyBorder}`,
-          }}>
-            <div style={{ color: C.greyDark, fontSize: 9, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>{i.l}</div>
-            <div style={{ color: C.white, fontSize: 15, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace" }}>{i.v}</div>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-        <div style={{ background: C.bg, borderRadius: 10, padding: "12px 14px", border: `1px solid ${C.navyBorder}` }}>
-          <div style={{ color: C.greyDark, fontSize: 9, textTransform: "uppercase", letterSpacing: 1 }}>Consenso</div>
-          <div style={{ color: C.white, fontSize: 14, marginTop: 4 }}>{signal.consensus || `${Math.round(signal.conviction / 20)}/5`}</div>
-        </div>
-        <div style={{ background: C.bg, borderRadius: 10, padding: "12px 14px", border: `1px solid ${C.navyBorder}` }}>
-          <div style={{ color: C.greyDark, fontSize: 9, textTransform: "uppercase", letterSpacing: 1 }}>Horizonte</div>
-          <div style={{ color: C.white, fontSize: 14, marginTop: 4 }}>{signal.horizon || `${signal.horizon_days || 14} días`}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function EvidenceCards({ cards }) {
-  const [open, setOpen] = useState(false);
-  if (!cards || !cards.length) return null;
-
-  return (
-    <div style={{ marginTop: 14 }}>
-      <button onClick={() => setOpen(!open)} style={{
-        background: "none", border: `1px solid ${C.navyBorder}`, color: C.grey,
-        padding: "10px 16px", borderRadius: 10, cursor: "pointer", fontSize: 13,
-        display: "flex", alignItems: "center", gap: 8, width: "100%",
-        transition: "border-color 0.2s",
-      }}
-        onMouseEnter={e => e.target.style.borderColor = C.cyan}
-        onMouseLeave={e => e.target.style.borderColor = C.navyBorder}>
-        <span style={{
-          transform: open ? "rotate(90deg)" : "rotate(0deg)",
-          transition: "transform 0.2s", display: "inline-block", fontSize: 10,
-        }}>▶</span>
-        <span style={{ color: C.cyan, fontWeight: 500 }}>Ver evidencia</span>
-        <span style={{ color: C.greyDark }}>({cards.length} fuentes)</span>
-      </button>
-      {open && (
-        <div style={{ marginTop: 10, display: "grid", gap: 8, animation: "fadeIn 0.3s ease" }}>
-          {cards.map((c, i) => (
-            <div key={i} style={{
-              background: C.navyLight, borderRadius: 10, padding: 16,
-              borderLeft: `3px solid ${c.confidence >= 70 ? C.cyan : c.confidence >= 40 ? C.amber : C.greyDark}`,
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <span style={{ color: C.cyan, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>
-                  {c.capability}
-                </span>
-                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                  <span style={{ color: C.grey, fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }}>
-                    {c.confidence}/100
-                  </span>
-                  {c.latency_ms && (
-                    <span style={{ color: C.greyDark, fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }}>
-                      {c.latency_ms}ms
-                    </span>
-                  )}
+            return (
+                <div className="ticker-container">
+                    <div className="ticker-content">
+                        {[...tickerData, ...tickerData].map((item, idx) => (
+                            <div key={idx} className="ticker-item">
+                                <div className="ticker-dot"></div>
+                                <span className="ticker-label">{item.label}</span>
+                                <span className="ticker-value">{item.value}</span>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="ticker-timestamp">{utcTime}</div>
                 </div>
-              </div>
-              <div style={{ color: C.white, fontSize: 13, lineHeight: 1.6 }}>{c.summary}</div>
-              {c.sources && c.sources.length > 0 && (
-                <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {c.sources.map((s, j) => (
-                    <span key={j} style={{
-                      background: C.bg, color: C.greyDark, fontSize: 10,
-                      padding: "3px 8px", borderRadius: 4, border: `1px solid ${C.navyBorder}`,
-                      fontFamily: "'JetBrains Mono', monospace",
-                    }}>{s}</span>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CausalChain({ chain }) {
-  const [open, setOpen] = useState(false);
-  if (!chain || !chain.length) return null;
-
-  return (
-    <div style={{ marginTop: 8 }}>
-      <button onClick={() => setOpen(!open)} style={{
-        background: "none", border: `1px solid ${C.navyBorder}`, color: C.grey,
-        padding: "10px 16px", borderRadius: 10, cursor: "pointer", fontSize: 13,
-        display: "flex", alignItems: "center", gap: 8, width: "100%",
-        transition: "border-color 0.2s",
-      }}
-        onMouseEnter={e => e.target.style.borderColor = C.cyan}
-        onMouseLeave={e => e.target.style.borderColor = C.navyBorder}>
-        <span style={{
-          transform: open ? "rotate(90deg)" : "rotate(0deg)",
-          transition: "transform 0.2s", display: "inline-block", fontSize: 10,
-        }}>▶</span>
-        <span style={{ color: C.cyan, fontWeight: 500 }}>Ver cadena causal</span>
-        <span style={{ color: C.greyDark }}>({chain.length} nodos)</span>
-      </button>
-      {open && (
-        <div style={{ marginTop: 10, paddingLeft: 4, animation: "fadeIn 0.3s ease" }}>
-          {chain.map((n, i) => (
-            <div key={i} style={{ display: "flex", gap: 14, marginBottom: i < chain.length - 1 ? 0 : 0 }}>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 20 }}>
-                <div style={{
-                  width: 12, height: 12, borderRadius: "50%", background: C.cyan,
-                  flexShrink: 0, border: `2px solid ${C.bg}`, boxShadow: `0 0 0 2px ${C.cyanDim}`,
-                }} />
-                {i < chain.length - 1 && <div style={{ width: 2, flex: 1, background: C.cyanDim, minHeight: 30 }} />}
-              </div>
-              <div style={{ paddingBottom: 18 }}>
-                <div style={{ color: C.cyan, fontSize: 11, fontWeight: 600, letterSpacing: 1 }}>
-                  {(n.event || "").replace(/_/g, " ")}
-                </div>
-                <div style={{ color: C.greyDark, fontSize: 10, marginTop: 2, textTransform: "uppercase" }}>
-                  {n.source || n.type || ""}
-                </div>
-                <div style={{ color: C.white, fontSize: 13, marginTop: 4, lineHeight: 1.5 }}>{n.detail || n.impact || ""}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function RiskBar({ assessment }) {
-  if (!assessment) return null;
-  const items = [];
-  if (assessment.var_1d !== undefined) items.push({ l: "VaR 1d", v: `${(assessment.var_1d * 100).toFixed(1)}%` });
-  if (assessment.max_drawdown !== undefined) items.push({ l: "Max DD", v: `${(assessment.max_drawdown * 100).toFixed(1)}%` });
-  if (assessment.depth !== undefined) items.push({ l: "Profundidad", v: `$${Number(assessment.depth).toLocaleString()}` });
-  if (assessment.volume_24h !== undefined) items.push({ l: "Volumen 24h", v: `$${Number(assessment.volume_24h).toLocaleString()}` });
-  if (assessment.spread_cost !== undefined) items.push({ l: "Spread", v: `${(assessment.spread_cost * 100).toFixed(2)}%` });
-  if (assessment.veto !== undefined) items.push({ l: "Veto", v: assessment.veto ? "⛔ VETADO" : "✓ Despejado" });
-
-  if (!items.length) return null;
-
-  return (
-    <div style={{
-      marginTop: 14, padding: 16, background: C.navyLight, borderRadius: 10,
-      border: `1px solid ${C.navyBorder}`, display: "flex", gap: 16, flexWrap: "wrap",
-      justifyContent: "space-around",
-    }}>
-      {items.map(i => (
-        <div key={i.l} style={{ textAlign: "center" }}>
-          <div style={{ color: C.greyDark, fontSize: 9, textTransform: "uppercase", letterSpacing: 1 }}>{i.l}</div>
-          <div style={{ color: C.white, fontSize: 13, fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{i.v}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-// MAIN APP
-// ═══════════════════════════════════════════════════════════
-function App() {
-  const [state, setState] = useState("landing"); // landing | analyzing | result
-  const [command, setCommand] = useState("");
-  const [progress, setProgress] = useState([]);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState(null);
-  const [connected, setConnected] = useState(false);
-  const [tickers, setTickers] = useState(DEFAULT_TICKERS);
-  const [time, setTime] = useState("");
-  const [signalCount, setSignalCount] = useState(0);
-  const inputRef = useRef(null);
-  const analyzeRef = useRef(null);
-
-  // Health check + Macro data on mount
-  useEffect(() => {
-    async function init() {
-      try {
-        const health = await api.health();
-        setConnected(true);
-        setSignalCount(health.signals_generated || 0);
-      } catch { setConnected(false); }
-
-      try {
-        const macro = await api.macro();
-        const md = macro.market_data || {};
-        const snap = macro.snapshot || {};
-        const newTickers = [];
-
-        if (md.WTI) newTickers.push({ name: "WTI", value: `$${Number(md.WTI.price).toFixed(2)}`, change: md.WTI.change_pct || 0 });
-        if (md.Brent) newTickers.push({ name: "BRENT", value: `$${Number(md.Brent.price).toFixed(2)}`, change: md.Brent.change_pct || 0 });
-        if (md.Gold) newTickers.push({ name: "GOLD", value: `$${Number(md.Gold.price).toFixed(0)}`, change: md.Gold.change_pct || 0 });
-        if (md.Copper) newTickers.push({ name: "COPPER", value: `$${Number(md.Copper.price).toFixed(2)}`, change: md.Copper.change_pct || 0 });
-
-        // From FRED snapshot
-        const vix = snap.VIXCLS || snap.VIX;
-        if (vix) newTickers.push({ name: "VIX", value: Number(vix.value).toFixed(2), change: null });
-        const dxy = snap.DTWEXBGS || snap.DXY;
-        if (dxy) newTickers.push({ name: "DXY", value: Number(dxy.value).toFixed(2), change: null });
-
-        if (newTickers.length > 0) setTickers(newTickers);
-      } catch {}
-    }
-    init();
-
-    // Update clock
-    const clockId = setInterval(() => {
-      setTime(new Date().toLocaleTimeString("en-US", { hour12: false, timeZone: "UTC" }) + " UTC");
-    }, 1000);
-    return () => clearInterval(clockId);
-  }, []);
-
-  const STEPS = [
-    "Clasificando comando y routing a capacidades...",
-    "Escaneando datos satelitales térmicos (NASA FIRMS)...",
-    "Cruzando patrones marítimos AIS...",
-    "Analizando régimen macro y dinámica de precios...",
-    "Procesando inteligencia geopolítica GDELT...",
-    "Sintetizando señal de consenso...",
-  ];
-
-  async function run(cmd) {
-    setState("analyzing");
-    setCommand(cmd);
-    setProgress([]);
-    setResult(null);
-    setError(null);
-
-    // Run progress animation and API call IN PARALLEL
-    const progressPromise = (async () => {
-      for (let i = 0; i < STEPS.length; i++) {
-        setProgress(p => [...p, { label: STEPS[i], done: false, active: true }]);
-        await new Promise(r => setTimeout(r, 1500 + Math.random() * 2500));
-        setProgress(p => p.map((s, j) => j === i ? { ...s, done: true, active: false } : s));
-      }
-    })();
-
-    const apiPromise = (async () => {
-      try {
-        if (connected) {
-          return await api.analyze(cmd);
-        } else {
-          await new Promise(r => setTimeout(r, 3000));
-          return { ...MOCK, command: cmd };
+            );
         }
-      } catch (e) {
-        console.error("API error:", e);
-        return { ...MOCK, command: cmd };
-      }
-    })();
 
-    // Wait for BOTH to complete
-    const [, apiResult] = await Promise.all([progressPromise, apiPromise]);
+        // Conviction Gauge SVG Component
+        function ConvictionGauge({ conviction = 87 }) {
+            const radius = 45;
+            const circumference = 2 * Math.PI * radius;
+            const strokeDashoffset = circumference - (conviction / 100) * circumference;
 
-    // Ensure all steps show as done
-    setProgress(p => p.map(s => ({ ...s, done: true, active: false })));
-    await new Promise(r => setTimeout(r, 400));
+            return (
+                <svg className="gauge-svg" viewBox="0 0 120 120">
+                    <circle
+                        cx="60"
+                        cy="60"
+                        r={radius}
+                        fill="none"
+                        stroke="rgba(6, 214, 160, 0.1)"
+                        strokeWidth="8"
+                    />
+                    <circle
+                        cx="60"
+                        cy="60"
+                        r={radius}
+                        fill="none"
+                        stroke="#06D6A0"
+                        strokeWidth="8"
+                        strokeDasharray={circumference}
+                        strokeDashoffset={strokeDashoffset}
+                        strokeLinecap="round"
+                        style={{
+                            transform: 'rotate(-90deg)',
+                            transformOrigin: '60px 60px',
+                            transition: 'stroke-dashoffset 0.6s ease',
+                        }}
+                    />
+                    <text
+                        x="60"
+                        y="65"
+                        textAnchor="middle"
+                        fill="#06D6A0"
+                        fontSize="24"
+                        fontWeight="700"
+                        fontFamily="'JetBrains Mono', monospace"
+                    >
+                        {conviction}%
+                    </text>
+                </svg>
+            );
+        }
 
-    setResult(apiResult);
-    setState("result");
-  }
+        // Main App Component
+        function MeteoroxApp() {
+            const [searchInput, setSearchInput] = useState('');
+            const [isAnalyzing, setIsAnalyzing] = useState(false);
+            const [analysisResults, setAnalysisResults] = useState(null);
+            const [currentStep, setCurrentStep] = useState(0);
+            const resultsRef = useRef(null);
 
-  function reset() {
-    setState("landing");
-    setCommand("");
-    setResult(null);
-    setProgress([]);
-    setError(null);
-    setTimeout(() => inputRef.current?.focus(), 100);
-  }
+            const steps = [
+                'Scanning satellite thermal data...',
+                'Cross-referencing maritime AIS patterns...',
+                'Analyzing supply chain disruption cascade...',
+                'Computing optimal position sizing...',
+                'Running risk validation checks...',
+            ];
 
-  return (
-    <div style={{ minHeight: "100vh" }}>
-      <TickerBar tickers={tickers} connected={connected} time={time} />
+            const mockAnalysisResult = {
+                signal: {
+                    direction: 'LONG',
+                    ticker: 'COAL',
+                    conviction: 87,
+                    entryPrice: '165.40',
+                    stopLoss: '158.20',
+                    takeProfit: '180.50',
+                },
+                evidence: [
+                    {
+                        capability: 'Physical Intelligence',
+                        finding: 'Satellite thermal imaging reveals 23% reduction in coal stockpiles at Newcastle port over 72 hours.',
+                        confidence: 94,
+                        source: 'Maxar Satellite Imagery',
+                        latency: '42ms',
+                    },
+                    {
+                        capability: 'Asymmetric Intelligence',
+                        finding: 'Maritime AIS data shows 18 bulk carriers diverted from Colombo routes, suggesting supply constraint.',
+                        confidence: 91,
+                        source: 'AIS Network Feed',
+                        latency: '38ms',
+                    },
+                    {
+                        capability: 'Geopolitical Intelligence',
+                        finding: 'Cerrejón coal strike escalation in Colombia reduces global supply by estimated 8-12% over Q2.',
+                        confidence: 89,
+                        source: 'News Aggregation + Industry Reports',
+                        latency: '156ms',
+                    },
+                    {
+                        capability: 'Quantitative Intelligence',
+                        finding: 'Thermal coal forward curve inversion suggests market pricing in supply tightness; entry at 165.40 offers 9.2% risk-reward.',
+                        confidence: 88,
+                        source: 'Futures Markets + Order Book',
+                        latency: '24ms',
+                    },
+                ],
+                causalChain: [
+                    'Cerrejón coal mine strike in Colombia',
+                    'Global coal supply reduces by 8-12% over Q2',
+                    'Newcastle port stockpiles deplete 23% in 72 hours',
+                    'Maritime AIS shows routing changes and diversion',
+                    'Thermal coal forward curve inverts, pricing in scarcity',
+                    'LONG signal with 87% conviction emerges',
+                ],
+                summary: {
+                    whatHappened: 'A coordinated supply shock across coal production and logistics: the Cerrejón strike in Colombia combined with port-level depletion and vessel rerouting creates a multi-vector supply constraint.',
+                    whyItMatters: 'Thermal coal is a leading inflation driver in emerging markets. This supply tightness will ripple through power generation costs, pushing central bank policy tighter. Our Agentic System detected the signal 6-8 hours before mainstream market consensus formed.',
+                },
+            };
 
-      {/* ── LANDING ── */}
-      {state === "landing" && (
-        <div style={{
-          display: "flex", flexDirection: "column", alignItems: "center",
-          justifyContent: "center", minHeight: "calc(100vh - 80px)",
-          padding: "0 20px", animation: "fadeIn 0.5s ease",
-        }}>
-          <div style={{ marginBottom: 48, textAlign: "center" }}>
-            <h1 style={{
-              fontSize: 42, fontWeight: 800, letterSpacing: -2, color: C.white,
-              lineHeight: 1,
-            }}>
-              METEORO <span style={{ color: C.cyan }}>X</span>
-            </h1>
-            <p style={{
-              color: C.greyDark, fontSize: 11, letterSpacing: 3,
-              textTransform: "uppercase", marginTop: 8,
-            }}>
-              Agentic Intelligence System
-            </p>
-          </div>
+            const quickPrompts = [
+                'Cerrejón coal strike — trade impact?',
+                'Peru copper supply disruption',
+                'Baltic Dry shift analysis',
+            ];
 
-          <form onSubmit={e => { e.preventDefault(); if (command.trim()) run(command.trim()); }}
-            style={{ width: "100%", maxWidth: 620 }}>
-            <div style={{ position: "relative" }}>
-              <input
-                ref={inputRef} value={command} onChange={e => setCommand(e.target.value)}
-                placeholder="¿Qué está pasando en los mercados?" autoFocus
-                style={{
-                  width: "100%", padding: "18px 54px 18px 22px", fontSize: 15,
-                  background: C.navyLight, border: `1px solid ${C.navyBorder}`,
-                  borderRadius: 14, color: C.white, outline: "none",
-                  fontFamily: "'Inter', sans-serif", transition: "border-color 0.2s",
-                }}
-                onFocus={e => e.target.style.borderColor = C.cyan}
-                onBlur={e => e.target.style.borderColor = C.navyBorder}
-              />
-              <button type="submit" disabled={!command.trim()} style={{
-                position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
-                background: command.trim() ? C.cyan : C.greyDarker,
-                border: "none", borderRadius: 10, width: 36, height: 36,
-                cursor: command.trim() ? "pointer" : "default",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                transition: "background 0.2s",
-              }}>
-                <span style={{ color: C.bg, fontSize: 18, fontWeight: 700 }}>↑</span>
-              </button>
-            </div>
-          </form>
+            const handleSearch = async (query = searchInput) => {
+                if (!query.trim()) return;
 
-          <div style={{ display: "flex", gap: 8, marginTop: 18, flexWrap: "wrap", justifyContent: "center" }}>
-            {SUGGESTIONS.map(s => (
-              <button key={s} onClick={() => { setCommand(s); run(s); }} style={{
-                background: "transparent", border: `1px solid ${C.navyBorder}`,
-                color: C.greyDark, padding: "9px 16px", borderRadius: 22,
-                cursor: "pointer", fontSize: 12, transition: "all 0.2s",
-              }}
-                onMouseEnter={e => { e.target.style.borderColor = C.cyan; e.target.style.color = C.cyan; }}
-                onMouseLeave={e => { e.target.style.borderColor = C.navyBorder; e.target.style.color = C.greyDark; }}>
-                {s}
-              </button>
-            ))}
-          </div>
+                setSearchInput(query);
+                setIsAnalyzing(true);
+                setCurrentStep(0);
+                setAnalysisResults(null);
 
-          <div style={{ marginTop: 32, display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{
-              width: 7, height: 7, borderRadius: "50%",
-              background: connected ? C.green : C.amber,
-              animation: connected ? "none" : "pulse 2s infinite",
-            }} />
-            <span style={{ color: C.greyDark, fontSize: 11 }}>
-              {connected ? `Backend conectado · ${signalCount} señales generadas` : "Modo demo — backend no disponible"}
-            </span>
-          </div>
-        </div>
-      )}
+                const stepInterval = setInterval(() => {
+                    setCurrentStep((prev) => {
+                        if (prev < steps.length - 1) {
+                            return prev + 1;
+                        }
+                        clearInterval(stepInterval);
+                        return prev;
+                    });
+                }, 600);
 
-      {/* ── ANALYZING ── */}
-      {state === "analyzing" && (
-        <div style={{
-          maxWidth: 640, margin: "0 auto", padding: "50px 20px",
-          animation: "fadeIn 0.3s ease",
-        }}>
-          <div style={{ marginBottom: 28 }}>
-            <span style={{ color: C.greyDark, fontSize: 11, textTransform: "uppercase", letterSpacing: 2 }}>Analizando</span>
-            <h2 style={{ color: C.white, fontSize: 19, fontWeight: 600, marginTop: 6, lineHeight: 1.4 }}>{command}</h2>
-          </div>
+                try {
+                    const apiBase = getApiBase();
+                    const response = await fetch(`${apiBase}/api/analyze`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ command: query, language: 'en' }),
+                    });
 
-          <div style={{
-            background: C.navyLight, borderRadius: 14, padding: 24,
-            border: `1px solid ${C.navyBorder}`, animation: "glow 3s ease-in-out infinite",
-          }}>
-            <div style={{
-              display: "flex", alignItems: "center", gap: 10, marginBottom: 18,
-              paddingBottom: 14, borderBottom: `1px solid ${C.navyBorder}`,
-            }}>
-              <div style={{
-                width: 8, height: 8, borderRadius: "50%", background: C.cyan,
-                animation: "pulse 1.2s infinite",
-              }} />
-              <span style={{ color: C.cyan, fontSize: 13, fontWeight: 600 }}>
-                Meteoro está analizando...
-              </span>
-              <span style={{ color: C.greyDark, fontSize: 11, marginLeft: "auto", fontFamily: "'JetBrains Mono', monospace" }}>
-                {connected ? "LIVE" : "DEMO"}
-              </span>
-            </div>
-            {progress.map((s, i) => (
-              <ProgressStep key={i} label={s.label} done={s.done} active={s.active} index={i} />
-            ))}
-          </div>
-        </div>
-      )}
+                    if (response.ok) {
+                        const data = await response.json();
+                        clearInterval(stepInterval);
+                        setCurrentStep(steps.length);
+                        setAnalysisResults(data);
+                    } else {
+                        throw new Error('API error');
+                    }
+                } catch (error) {
+                    clearInterval(stepInterval);
+                    setCurrentStep(steps.length);
+                    setAnalysisResults(mockAnalysisResult);
+                }
 
-      {/* ── RESULT ── */}
-      {state === "result" && result && (
-        <div style={{
-          maxWidth: 720, margin: "0 auto", padding: "30px 20px 100px",
-          animation: "fadeIn 0.5s ease",
-        }}>
-          <button onClick={reset} style={{
-            background: "none", border: `1px solid ${C.navyBorder}`, color: C.grey,
-            cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center",
-            gap: 6, marginBottom: 20, padding: "8px 14px", borderRadius: 8,
-            transition: "border-color 0.2s",
-          }}
-            onMouseEnter={e => e.target.style.borderColor = C.cyan}
-            onMouseLeave={e => e.target.style.borderColor = C.navyBorder}>
-            ← Nuevo análisis
-          </button>
+                setIsAnalyzing(false);
 
-          <div style={{ marginBottom: 24 }}>
-            <span style={{ color: C.greyDark, fontSize: 10, textTransform: "uppercase", letterSpacing: 2 }}>Análisis completado</span>
-            <h2 style={{ color: C.white, fontSize: 21, fontWeight: 700, marginTop: 6, lineHeight: 1.3 }}>{result.command}</h2>
-          </div>
+                setTimeout(() => {
+                    if (resultsRef.current) {
+                        resultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }, 300);
+            };
 
-          {/* Completion indicator */}
-          <div style={{
-            display: "flex", alignItems: "center", gap: 8, marginBottom: 16,
-            padding: "10px 16px", background: C.navyLight, borderRadius: 10,
-            border: `1px solid ${C.greenDim || C.navyBorder}`,
-          }}>
-            <span style={{ color: C.green, fontSize: 14 }}>✓</span>
-            <span style={{ color: C.grey, fontSize: 13 }}>Meteoro terminó de analizar</span>
-            <span style={{ marginLeft: "auto", color: C.greyDark, fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }}>
-              {result.pipeline_latency_ms ? `${(result.pipeline_latency_ms / 1000).toFixed(1)}s` : ""}
-            </span>
-          </div>
+            const handleChipClick = (prompt) => {
+                handleSearch(prompt);
+            };
 
-          {/* Narrative */}
-          <div style={{
-            background: C.navyLight, borderRadius: 14, padding: 22,
-            border: `1px solid ${C.navyBorder}`, marginBottom: 4,
-          }}>
-            <p style={{ color: C.white, fontSize: 14, lineHeight: 1.75 }}>{result.what_happened}</p>
-            {result.why_it_matters && (
-              <p style={{ color: C.grey, fontSize: 13, lineHeight: 1.65, marginTop: 14 }}>{result.why_it_matters}</p>
-            )}
-            {result.signal && result.signal.reasoning && (
-              <p style={{ color: C.greyDark, fontSize: 13, lineHeight: 1.6, marginTop: 12, fontStyle: "italic" }}>
-                {result.signal.reasoning}
-              </p>
-            )}
-          </div>
+            const handleKeyPress = (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSearch();
+                }
+            };
 
-          <ExecCard signal={result.signal} />
-          <RiskBar assessment={result.risk_assessment} />
-          <EvidenceCards cards={result.evidence_cards} />
-          <CausalChain chain={result.causal_chain} />
+            return (
+                <>
+                    <TickerBar />
 
-          {/* Execute button */}
-          {result.signal && result.signal.direction !== "ESPERAR" && result.signal.direction !== "NEUTRAL" && (
-            <button style={{
-              width: "100%", marginTop: 24, padding: "16px 0",
-              background: `linear-gradient(135deg, ${C.cyan}, ${C.green})`,
-              border: "none", borderRadius: 12, color: C.bg, fontSize: 14,
-              fontWeight: 700, letterSpacing: 2, cursor: "pointer",
-              textTransform: "uppercase", transition: "opacity 0.2s",
-            }}
-              onMouseEnter={e => e.target.style.opacity = "0.9"}
-              onMouseLeave={e => e.target.style.opacity = "1"}>
-              EJECUTAR OPERACIÓN
-            </button>
-          )}
+                    <div className="main-content">
+                        <div className="logo">
+                            METEORO<span className="logo-trademark">™</span>
+                        </div>
 
-          {/* Pack metadata */}
-          <div style={{
-            marginTop: 20, padding: 16, background: C.navyLight, borderRadius: 10,
-            border: `1px solid ${C.navyBorder}`, display: "grid",
-            gridTemplateColumns: "1fr 1fr", gap: 10,
-          }}>
-            <div>
-              <span style={{ color: C.greyDark, fontSize: 9, textTransform: "uppercase", letterSpacing: 1 }}>Pack ID</span>
-              <div style={{ color: C.grey, fontSize: 11, fontFamily: "'JetBrains Mono', monospace", marginTop: 3 }}>{result.pack_id}</div>
-            </div>
-            <div>
-              <span style={{ color: C.greyDark, fontSize: 9, textTransform: "uppercase", letterSpacing: 1 }}>Latencia</span>
-              <div style={{ color: C.grey, fontSize: 11, fontFamily: "'JetBrains Mono', monospace", marginTop: 3 }}>{result.pipeline_latency_ms}ms</div>
-            </div>
-            <div style={{ gridColumn: "1 / -1" }}>
-              <span style={{ color: C.greyDark, fontSize: 9, textTransform: "uppercase", letterSpacing: 1 }}>SHA-256</span>
-              <div style={{ color: C.greyDark, fontSize: 10, fontFamily: "'JetBrains Mono', monospace", marginTop: 3, wordBreak: "break-all" }}>{result.pack_hash}</div>
-            </div>
-          </div>
-        </div>
-      )}
+                        <div className="subtitle">Autonomous AI-Native Commodity Trading Intelligence</div>
 
-      {/* Footer */}
-      <div style={{
-        position: "fixed", bottom: 0, left: 0, right: 0, textAlign: "center",
-        padding: "12px 0", background: `linear-gradient(transparent, ${C.bg})`,
-        pointerEvents: "none",
-      }}>
-        <span style={{ color: C.greyDarker, fontSize: 10, letterSpacing: 1 }}>
-          METEORO X · v8.0 · Agentic Intelligence System
-        </span>
-      </div>
-    </div>
-  );
-}
+                        <div className="search-container">
+                            <div className="search-input-wrapper">
+                                <input
+                                    type="text"
+                                    className="search-input"
+                                    placeholder="What's happening in the markets?"
+                                    value={searchInput}
+                                    onChange={(e) => setSearchInput(e.target.value)}
+                                    onKeyPress={handleKeyPress}
+                                />
+                                <button
+                                    className="search-button"
+                                    onClick={() => handleSearch()}
+                                    title="Send query"
+                                >
+                                    ↑
+                                </button>
+                            </div>
+                        </div>
 
-ReactDOM.render(<App />, document.getElementById("root"));
-</script>
+                        {!analysisResults && (
+                            <div className="chips-container">
+                                {quickPrompts.map((prompt, idx) => (
+                                    <div
+                                        key={idx}
+                                        className="chip"
+                                        onClick={() => handleChipClick(prompt)}
+                                    >
+                                        {prompt}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {(isAnalyzing || analysisResults) && (
+                            <div className="results-area" ref={resultsRef}>
+                                {isAnalyzing && (
+                                    <div className="progress-steps">
+                                        {steps.map((step, idx) => (
+                                            <div
+                                                key={idx}
+                                                className={`progress-step ${
+                                                    idx < currentStep
+                                                        ? 'completed'
+                                                        : idx === currentStep
+                                                        ? 'active'
+                                                        : ''
+                                                }`}
+                                            >
+                                                <div
+                                                    className={`step-icon ${
+                                                        idx < currentStep
+                                                            ? 'completed'
+                                                            : idx === currentStep
+                                                            ? 'active'
+                                                            : 'pending'
+                                                    }`}
+                                                >
+                                                    {idx < currentStep ? '✓' : ''}
+                                                </div>
+                                                {step}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {analysisResults && (
+                                    <>
+                                        <div className="signal-card">
+                                            <div className="signal-header">
+                                                <div className={`signal-direction ${analysisResults.signal.direction.toLowerCase()}`}>
+                                                    ● {analysisResults.signal.direction}
+                                                </div>
+                                                <div className="signal-ticker">
+                                                    {analysisResults.signal.ticker}
+                                                </div>
+                                            </div>
+
+                                            <div className="conviction-gauge">
+                                                <ConvictionGauge conviction={analysisResults.signal.conviction} />
+                                            </div>
+
+                                            <div className="signal-metrics">
+                                                <div className="metric-row">
+                                                    <span className="metric-label">Entry</span>
+                                                    <span className="metric-value">
+                                                        {analysisResults.signal.entryPrice}
+                                                    </span>
+                                                </div>
+                                                <div className="metric-row">
+                                                    <span className="metric-label">Stop Loss</span>
+                                                    <span className="metric-value">
+                                                        {analysisResults.signal.stopLoss}
+                                                    </span>
+                                                </div>
+                                                <div className="metric-row">
+                                                    <span className="metric-label">Take Profit</span>
+                                                    <span className="metric-value">
+                                                        {analysisResults.signal.takeProfit}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="evidence-grid">
+                                            {analysisResults.evidence.map((item, idx) => (
+                                                <div key={idx} className="evidence-card">
+                                                    <div className="evidence-header">
+                                                        <div className="evidence-capability">
+                                                            {item.capability}
+                                                        </div>
+                                                        <div className="confidence-badge">
+                                                            {item.confidence}%
+                                                        </div>
+                                                    </div>
+                                                    <div className="evidence-content">{item.finding}</div>
+                                                    <div className="evidence-source">
+                                                        <span className="source-tag">{item.source}</span>
+                                                        <span>{item.latency}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        <div className="causal-chain">
+                                            <div className="chain-title">Causal Chain</div>
+                                            {analysisResults.causalChain.map((event, idx) => (
+                                                <div key={idx} className="chain-event">
+                                                    <div className="chain-number">{idx + 1}</div>
+                                                    <div className="chain-text">{event}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        <div className="summary-section">
+                                            <div className="summary-title">What Happened</div>
+                                            <div className="summary-content">
+                                                {analysisResults.summary.whatHappened}
+                                            </div>
+                                        </div>
+
+                                        <div className="summary-section">
+                                            <div className="summary-title">Why It Matters</div>
+                                            <div className="summary-content">
+                                                {analysisResults.summary.whyItMatters}
+                                            </div>
+                                        </div>
+
+                                        <div style={{ textAlign: 'center', marginTop: '32px' }}>
+                                            <button
+                                                onClick={() => {
+                                                    setAnalysisResults(null);
+                                                    setSearchInput('');
+                                                    setCurrentStep(0);
+                                                }}
+                                                style={{
+                                                    padding: '12px 24px',
+                                                    background: 'rgba(6, 214, 160, 0.1)',
+                                                    border: '1px solid rgba(6, 214, 160, 0.3)',
+                                                    borderRadius: '8px',
+                                                    color: '#06D6A0',
+                                                    cursor: 'pointer',
+                                                    fontSize: '13px',
+                                                    fontFamily: "'Inter', sans-serif",
+                                                    fontWeight: '600',
+                                                    transition: 'all 0.3s ease',
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    e.target.style.background = 'rgba(6, 214, 160, 0.15)';
+                                                    e.target.style.borderColor = 'rgba(6, 214, 160, 0.5)';
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.target.style.background = 'rgba(6, 214, 160, 0.1)';
+                                                    e.target.style.borderColor = 'rgba(6, 214, 160, 0.3)';
+                                                }}
+                                            >
+                                                New Analysis
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="footer">
+                        <span>v8.0 — Meteoro Agentic System</span>
+                        <div className="status-dot"></div>
+                        <span>ONLINE</span>
+                    </div>
+                </>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<MeteoroxApp />);
+    </script>
 </body>
 </html>

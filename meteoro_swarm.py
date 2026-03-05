@@ -2,7 +2,7 @@
 """
 ╔══════════════════════════════════════════════════════════════════╗
 ║  METEORO SWARM v7.2 — REAL DATA + RATE-LIMITED LLM               ║
-║  12 Super Agents | DeepSeek + Gemini | Real Market Data           ║
+║  Agentic System | Multi-Model Intelligence | Real Market Data     ║
 ║                                                                    ║
 ║  FLOW:                                                            ║
 ║    1. Fetch REAL market data (yfinance, GDELT)                   ║
@@ -237,7 +237,7 @@ class SwarmSignal:
 class MeteorSwarm:
     """
     Meteoro Swarm v7.2 — Real Data + Real LLM Analysis.
-    12 Super Agents with DeepSeek + Gemini doing actual analysis.
+    Agentic system with multi-model intelligence doing actual analysis.
     """
 
     TIME_BUDGET_MS = 120_000  # 120 seconds total

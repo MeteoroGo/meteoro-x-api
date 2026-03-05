@@ -274,7 +274,7 @@ async def fetch_latam_fx() -> Dict[str, Any]:
 async def fetch_full_market_context(commodity: str) -> Dict[str, Any]:
     """
     Fetch ALL real data needed for a full swarm analysis.
-    This is called once and shared across all 12 agents.
+    This is called once and shared across all agents in the system.
     """
     # Fetch everything in parallel
     commodity_task = fetch_commodity_price(commodity)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 METEORO X v7.2 — MULTI-MODEL ROUTER + RATE LIMITER
-4 Cerebros Cognitivos | Enrutamiento Dinamico por Agente | Retry + Backoff
+Multi-Model Router | Dynamic Agent Routing | Retry + Backoff
 
 STACK ACTIVO:
   Claude Haiku 3.5  -> Sintesis, coordinacion, decisiones (Anthropic) [PENDIENTE - consola caida]
@@ -14,7 +14,7 @@ RATE LIMITING:
   DeepSeek needs credits loaded ($5 min at platform.deepseek.com).
   All agents fall through to Gemini via fallback chain until other providers are funded.
 
-Costo objetivo por analisis completo (12 agentes): $0.03-0.08
+Costo objetivo por analisis completo (sistema agentico): $0.03-0.08
 """
 
 import os

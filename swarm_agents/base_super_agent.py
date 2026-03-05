@@ -35,7 +35,7 @@ class SuperAgentResult:
     """
     Structured result from a SuperAgent.
 
-    This is the standard output format for all 12 agents in the swarm.
+    This is the standard output format for all agents in the agentic system.
     Enables consensus mechanisms and weighted voting across all agents.
     """
     agent_id: int                           # 0-12, where 0 = Commander
@@ -77,16 +77,16 @@ class SuperAgentResult:
 
 class SuperAgent:
     """
-    Base class for all 12 Super Agents in the Meteoro Swarm.
+    Base class for agents in the Meteoro Agentic System.
 
-    Think-Act-Observe Loop:
+    Think-Act-Observe Loop (inspired by OpenManus/ReAct):
     1. THINK: Process directive + context with LLM
     2. ACT: Call tools, APIs, execute computations
     3. OBSERVE: Extract signal, confidence, evidence
     4. Return SuperAgentResult
 
     Each agent is specialized and runs in parallel with others.
-    Total time budget: <5 seconds per agent (20 seconds total for all 12).
+    Dynamic scaling — the system deploys as many agents as the task requires.
     """
 
     MAX_EXEC_TIME_MS = 5000  # 5 seconds per agent max
