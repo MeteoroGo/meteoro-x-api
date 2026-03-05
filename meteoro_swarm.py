@@ -240,8 +240,9 @@ class MeteorSwarm:
     12 Super Agents with DeepSeek + Gemini doing actual analysis.
     """
 
-    TIME_BUDGET_MS = 120_000  # 120 seconds (rate-limited LLM calls)
-    AGENT_TIMEOUT_MS = 30_000  # 30 seconds per agent (includes rate limit wait)
+    TIME_BUDGET_MS = 120_000  # 120 seconds total
+    AGENT_TIMEOUT_MS = 12_000  # 12 seconds per agent (single LLM call)
+    AGENT_SPACING_S = 5.0  # seconds between sequential calls (Gemini 15 RPM)
 
     def __init__(self):
         self.agent_configs = AGENT_CONFIGS
@@ -312,46 +313,30 @@ class MeteorSwarm:
 
         all_results: List[SuperAgentResult] = []
 
-        # Run agents 1-9 in BATCHES of 2 (Gemini free = 15 RPM)
-        # Rate limiter in router enforces 5s spacing between calls
-        BATCH_SIZE = 2
-        BATCH_DELAY = 0.5  # short delay — rate limiter handles spacing
+        # Run agents 1-9 SEQUENTIALLY with spacing
+        # Gemini free tier = 15 RPM. Sequential with 5s spacing = safe.
+        # Total: 9 agents * ~8s each = ~72s
+        print(f"\n[SWARM] Running 9 agents SEQUENTIALLY (Gemini 15 RPM limit)...")
 
-        intelligence_agents = self.agent_configs[:9]  # Agents 1-9
-        num_batches = (len(intelligence_agents) + BATCH_SIZE - 1) // BATCH_SIZE
+        for i, config in enumerate(self.agent_configs[:9]):
+            # Space calls to avoid Gemini 429
+            if i > 0:
+                await asyncio.sleep(self.AGENT_SPACING_S)
 
-        for batch_idx in range(num_batches):
-            batch_start = batch_idx * BATCH_SIZE
-            batch_end = min(batch_start + BATCH_SIZE, len(intelligence_agents))
-            batch = intelligence_agents[batch_start:batch_end]
-            batch_names = [c["name"] for c in batch]
-
-            print(f"\n[SWARM] Batch {batch_idx+1}/{num_batches}: {', '.join(batch_names)}")
-
-            batch_tasks = [
-                self._run_llm_agent(config, commodity, data_str, context)
-                for config in batch
-            ]
-
-            batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
-            for r in batch_results:
-                if isinstance(r, Exception):
-                    print(f"  [Agent ERROR] {r}")
-                    all_results.append(SuperAgentResult(
-                        agent_id=0, agent_name="Failed Agent",
-                        signal=Signal.NEUTRAL, confidence=0,
-                        reasoning=f"Error: {str(r)[:100]}",
-                        sources_analyzed=0,
-                    ))
-                else:
-                    all_results.append(r)
-
-            # Delay between batches to respect rate limits
-            if batch_idx < num_batches - 1:
-                print(f"  [RATE LIMIT] Waiting {BATCH_DELAY}s before next batch...")
-                await asyncio.sleep(BATCH_DELAY)
+            try:
+                result = await self._run_llm_agent(config, commodity, data_str, context)
+                all_results.append(result)
+            except Exception as e:
+                print(f"  [Agent ERROR] {config['name']}: {e}")
+                all_results.append(SuperAgentResult(
+                    agent_id=config["id"], agent_name=config["name"],
+                    signal=Signal.NEUTRAL, confidence=0,
+                    reasoning=f"Error: {str(e)[:100]}",
+                    sources_analyzed=0,
+                ))
 
         # ─── STEP 3: RISK GUARDIAN (with all previous results) ────
+        await asyncio.sleep(self.AGENT_SPACING_S)
         print("\n[DELTA] Risk Guardian analyzing...")
         prev_signals = "\n".join([
             f"  {r.agent_name}: {r.signal.value} ({r.confidence}%) — {r.reasoning[:80]}"
@@ -378,23 +363,19 @@ MARKET DATA:
         else:
             print(f"  [RISK GUARDIAN] ✓ No veto: {risk_result.reasoning[:60]}")
 
-        # ─── STEP 4: EXECUTION + COUNTERINTEL (parallel) ─────────
+        # ─── STEP 4: EXECUTION + COUNTERINTEL (sequential) ───────
         print("\n[DELTA] Execution + Counterintelligence...")
-        delta_tasks = []
         for config in self.agent_configs[10:12]:  # Agents 11-12
-            delta_tasks.append(
-                self._run_llm_agent(config, commodity, data_str, context)
-            )
-        delta_results = await asyncio.gather(*delta_tasks, return_exceptions=True)
-        for r in delta_results:
-            if isinstance(r, Exception):
-                all_results.append(SuperAgentResult(
-                    agent_id=0, agent_name="Delta Failed",
-                    signal=Signal.NEUTRAL, confidence=0,
-                    reasoning=str(r)[:100], sources_analyzed=0,
-                ))
-            else:
+            await asyncio.sleep(self.AGENT_SPACING_S)
+            try:
+                r = await self._run_llm_agent(config, commodity, data_str, context)
                 all_results.append(r)
+            except Exception as e:
+                all_results.append(SuperAgentResult(
+                    agent_id=config["id"], agent_name=config["name"],
+                    signal=Signal.NEUTRAL, confidence=0,
+                    reasoning=str(e)[:100], sources_analyzed=0,
+                ))
 
         # ─── STEP 5: CONSENSUS ───────────────────────────────────
         final_signal, conviction, reasoning = self._build_consensus(

@@ -38,57 +38,11 @@ except ImportError:
 # ═══════════════════════════════════════════════════════════════
 
 # ═══════════════════════════════════════════════════════════════
-# GLOBAL RATE LIMITER — Enforces minimum interval between API calls
-# Gemini free tier = 15 RPM = 1 call per 4 seconds
+# SIMPLE APPROACH — No rate limiter in router.
+# Swarm handles pacing by running agents sequentially with delays.
 # ═══════════════════════════════════════════════════════════════
 
-MAX_RETRIES = 4
-RETRY_BASE_DELAY = 5.0  # seconds (5s, 10s, 20s, 40s)
-
-
-class ProviderRateLimiter:
-    """Rate limiter that enforces minimum interval between calls to a provider."""
-
-    def __init__(self, calls_per_minute: int = 15):
-        self.min_interval = 60.0 / calls_per_minute  # seconds between calls
-        self._lock = None  # Created lazily per event loop
-        self.last_call_time = 0.0
-
-    def _get_lock(self) -> asyncio.Lock:
-        if self._lock is None:
-            self._lock = asyncio.Lock()
-        return self._lock
-
-    async def acquire(self):
-        """Wait until it's safe to make a call."""
-        lock = self._get_lock()
-        async with lock:
-            now = time.time()
-            elapsed = now - self.last_call_time
-            if elapsed < self.min_interval:
-                wait_time = self.min_interval - elapsed
-                logger.info(f"Rate limiter: waiting {wait_time:.1f}s")
-                await asyncio.sleep(wait_time)
-            self.last_call_time = time.time()
-
-
-# Per-provider rate limiters
-_rate_limiters: Dict[str, ProviderRateLimiter] = {}
-
-PROVIDER_RPM = {
-    "gemini": 12,     # Gemini free: 15 RPM, use 12 for safety margin
-    "deepseek": 60,   # DeepSeek: generous when funded
-    "anthropic": 50,  # Anthropic: standard
-    "kimi": 10,       # Disabled
-}
-
-
-def _get_rate_limiter(provider: str) -> ProviderRateLimiter:
-    """Get or create a rate limiter for a provider."""
-    if provider not in _rate_limiters:
-        rpm = PROVIDER_RPM.get(provider, 15)
-        _rate_limiters[provider] = ProviderRateLimiter(calls_per_minute=rpm)
-    return _rate_limiters[provider]
+MAX_RETRIES = 1  # Just try once per provider (swarm handles pacing)
 
 
 class ModelProvider(Enum):
@@ -359,56 +313,28 @@ async def call_llm(
         if not caller:
             continue
 
-        # Get provider rate limiter
-        rate_limiter = _get_rate_limiter(profile.provider.value)
-
-        # Retry loop for 429 errors
-        for attempt in range(MAX_RETRIES):
-            t0 = time.time()
-            try:
-                # Wait for rate limiter before making call
-                await rate_limiter.acquire()
-                result = await caller(profile, system_prompt, user_message)
-
-                latency = int((time.time() - t0) * 1000)
-                inp = result.get("input_tokens", 0)
-                out = result.get("output_tokens", 0)
-                cost = (inp * profile.cost_input_per_m + out * profile.cost_output_per_m) / 1_000_000
-                cost_tracker.record(model_key, cost)
-                return LLMResponse(
-                    content=result["content"],
-                    model_used=model_key,
-                    provider=profile.provider.value,
-                    input_tokens=inp,
-                    output_tokens=out,
-                    cost_usd=cost,
-                    latency_ms=latency,
-                    fallback_used=(model_key != primary_key),
-                )
-
-            except Exception as e:
-                error_str = str(e)
-                last_error = e
-
-                # Check if it's a rate limit error (429) — retry with backoff
-                if "429" in error_str or "rate" in error_str.lower():
-                    delay = RETRY_BASE_DELAY * (2 ** attempt)  # 2s, 4s, 8s
-                    logger.warning(
-                        f"[{agent_name}] {model_key} rate limited (429), "
-                        f"retry {attempt+1}/{MAX_RETRIES} in {delay}s"
-                    )
-                    print(f"  [{agent_name}] Rate limited on {model_key}, waiting {delay}s...")
-                    await asyncio.sleep(delay)
-                    continue  # Retry same model
-
-                # Check if it's a payment error (402) — skip to next model
-                if "402" in error_str or "payment" in error_str.lower():
-                    logger.warning(f"[{agent_name}] {model_key} payment required (402), skipping")
-                    break  # Skip to next model in chain
-
-                # Other error — skip to next model
-                logger.error(f"[{agent_name}] {model_key} error: {error_str[:100]}")
-                break  # Skip to next model in chain
+        t0 = time.time()
+        try:
+            result = await caller(profile, system_prompt, user_message)
+            latency = int((time.time() - t0) * 1000)
+            inp = result.get("input_tokens", 0)
+            out = result.get("output_tokens", 0)
+            cost = (inp * profile.cost_input_per_m + out * profile.cost_output_per_m) / 1_000_000
+            cost_tracker.record(model_key, cost)
+            return LLMResponse(
+                content=result["content"],
+                model_used=model_key,
+                provider=profile.provider.value,
+                input_tokens=inp,
+                output_tokens=out,
+                cost_usd=cost,
+                latency_ms=latency,
+                fallback_used=(model_key != primary_key),
+            )
+        except Exception as e:
+            last_error = e
+            logger.warning(f"[{agent_name}] {model_key} error: {str(e)[:80]}")
+            continue  # Try next model in fallback chain
 
     return LLMResponse(
         content=json.dumps({
