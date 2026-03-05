@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meteoro — Autonomous Commodity Intelligence</title>
+    <meta name="description" content="12 AI agents analyze global commodity markets in real-time. Asymmetric intelligence for traders who want an edge.">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☄️</text></svg>">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        void: '#0a0a0a',
+                        surface: '#111111',
+                        border: '#1a1a1a',
+                        accent: '#00ff88',
+                        accentDim: '#00cc6a',
+                        signal: { buy: '#00ff88', sell: '#ff4444', hold: '#ffaa00' },
+                    },
+                    fontFamily: {
+                        mono: ['"JetBrains Mono"', '"SF Mono"', 'Consolas', 'monospace'],
+                        sans: ['"Inter"', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body { background: #0a0a0a; }
+        .grid-bg {
+            background-image:
+                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-size: 60px 60px;
+        }
+        .glow { box-shadow: 0 0 60px rgba(0, 255, 136, 0.08); }
+        .glow-text { text-shadow: 0 0 40px rgba(0, 255, 136, 0.3); }
+        @keyframes pulse-slow { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+        .pulse-slow { animation: pulse-slow 3s ease-in-out infinite; }
+        @keyframes scan { 0% { transform: translateY(-100%); } 100% { transform: translateY(100vh); } }
+        .scan-line { animation: scan 8s linear infinite; }
+        .agent-card:hover { border-color: #00ff88; transform: translateY(-2px); }
+        .stat-number { font-variant-numeric: tabular-nums; }
+    </style>
+</head>
+<body class="text-white font-sans antialiased">
+
+    <!-- NAV -->
+    <nav class="fixed top-0 w-full z-50 bg-void/80 backdrop-blur-xl border-b border-border">
+        <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-accent/10 border border-accent/30 rounded flex items-center justify-center">
+                    <span class="text-accent font-mono text-sm font-bold">M</span>
+                </div>
+                <span class="font-mono text-sm font-medium tracking-wider text-white/90">METEORO</span>
+                <span class="text-[10px] font-mono text-accent/60 border border-accent/20 px-1.5 py-0.5 rounded">BETA</span>
+            </div>
+            <div class="hidden md:flex items-center gap-8 text-sm text-white/50">
+                <a href="#how" class="hover:text-white transition">How it works</a>
+                <a href="#agents" class="hover:text-white transition">Agents</a>
+                <a href="#pricing" class="hover:text-white transition">Pricing</a>
+            </div>
+            <a href="https://meteoro-x-api.onrender.com" target="_blank"
+               class="bg-accent text-void font-mono text-sm font-semibold px-5 py-2 rounded hover:bg-accentDim transition">
+                Launch Platform →
+            </a>
+        </div>
+    </nav>
+
+    <!-- HERO -->
+    <section class="relative min-h-screen flex items-center grid-bg overflow-hidden">
+        <!-- Scan line effect -->
+        <div class="absolute inset-0 pointer-events-none overflow-hidden">
+            <div class="scan-line absolute w-full h-px bg-gradient-to-r from-transparent via-accent/20 to-transparent"></div>
+        </div>
+
+        <div class="max-w-6xl mx-auto px-6 pt-32 pb-20">
+            <div class="max-w-3xl">
+                <!-- Status badge -->
+                <div class="inline-flex items-center gap-2 border border-accent/20 bg-accent/5 px-3 py-1.5 rounded-full mb-8">
+                    <span class="w-2 h-2 bg-accent rounded-full pulse-slow"></span>
+                    <span class="text-xs font-mono text-accent/80">12 AGENTS ONLINE — ANALYZING GLOBAL MARKETS</span>
+                </div>
+
+                <h1 class="text-5xl md:text-7xl font-bold leading-[1.05] tracking-tight mb-6">
+                    <span class="text-white">Autonomous</span><br>
+                    <span class="text-white">Commodity</span><br>
+                    <span class="text-accent glow-text">Intelligence</span>
+                </h1>
+
+                <p class="text-lg md:text-xl text-white/50 leading-relaxed max-w-xl mb-10">
+                    12 AI agents process data the market doesn't read — Chinese trade reports, satellite imagery, shipping routes, geopolitical signals — and deliver actionable trading intelligence in under 60 seconds.
+                </p>
+
+                <div class="flex flex-col sm:flex-row gap-4 mb-16">
+                    <a href="https://meteoro-x-api.onrender.com" target="_blank"
+                       class="bg-accent text-void font-mono font-semibold px-8 py-3.5 rounded text-center hover:bg-accentDim transition glow">
+                        Try Free Analysis →
+                    </a>
+                    <a href="#how"
+                       class="border border-white/10 text-white/70 font-mono px-8 py-3.5 rounded text-center hover:border-white/30 hover:text-white transition">
+                        How it works
+                    </a>
+                </div>
+
+                <!-- Live stats -->
+                <div class="grid grid-cols-3 gap-8 border-t border-border pt-8">
+                    <div>
+                        <div class="text-3xl font-mono font-bold text-white stat-number">12</div>
+                        <div class="text-xs text-white/40 mt-1">AI Agents</div>
+                    </div>
+                    <div>
+                        <div class="text-3xl font-mono font-bold text-white stat-number">&lt;60s</div>
+                        <div class="text-xs text-white/40 mt-1">Full Analysis</div>
+                    </div>
+                    <div>
+                        <div class="text-3xl font-mono font-bold text-white stat-number">13</div>
+                        <div class="text-xs text-white/40 mt-1">Commodities</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section id="how" class="py-24 border-t border-border">
+        <div class="max-w-6xl mx-auto px-6">
+            <div class="text-xs font-mono text-accent/60 mb-3 tracking-widest">PIPELINE</div>
+            <h2 class="text-3xl md:text-4xl font-bold mb-4">Data → Signal → Edge</h2>
+            <p class="text-white/40 max-w-xl mb-16">From raw global data to actionable trade signal in under 60 seconds. No human bottleneck.</p>
+
+            <div class="grid md:grid-cols-4 gap-6">
+                <div class="bg-surface border border-border rounded-lg p-6">
+                    <div class="text-accent font-mono text-sm mb-4">01</div>
+                    <h3 class="font-semibold mb-2">Ingest</h3>
+                    <p class="text-sm text-white/40">Real-time prices from yfinance, geopolitical events from GDELT, LatAm FX rates, macro indicators</p>
+                </div>
+                <div class="bg-surface border border-border rounded-lg p-6">
+                    <div class="text-accent font-mono text-sm mb-4">02</div>
+                    <h3 class="font-semibold mb-2">Analyze</h3>
+                    <p class="text-sm text-white/40">12 specialized agents process data through different lenses: quant, geopolitical, supply chain, macro</p>
+                </div>
+                <div class="bg-surface border border-border rounded-lg p-6">
+                    <div class="text-accent font-mono text-sm mb-4">03</div>
+                    <h3 class="font-semibold mb-2">Consensus</h3>
+                    <p class="text-sm text-white/40">Majority voting with Risk Guardian veto power. High conviction only when agents agree.</p>
+                </div>
+                <div class="bg-surface border border-border rounded-lg p-6">
+                    <div class="text-accent font-mono text-sm mb-4">04</div>
+                    <h3 class="font-semibold mb-2">Signal</h3>
+                    <p class="text-sm text-white/40">BUY / SELL / HOLD with conviction %, reasoning, entry price, stop loss, and take profit</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- AGENTS -->
+    <section id="agents" class="py-24 border-t border-border bg-surface/50">
+        <div class="max-w-6xl mx-auto px-6">
+            <div class="text-xs font-mono text-accent/60 mb-3 tracking-widest">SWARM</div>
+            <h2 class="text-3xl md:text-4xl font-bold mb-4">12 Super Agents. 4 Swarms.</h2>
+            <p class="text-white/40 max-w-xl mb-16">Each agent is a specialist. Together, they see what no single analyst can.</p>
+
+            <div class="grid md:grid-cols-4 gap-4">
+                <!-- Alpha -->
+                <div class="space-y-3">
+                    <div class="text-xs font-mono text-white/30 mb-2">SWARM ALPHA — INTELLIGENCE</div>
+                    <div class="agent-card bg-void border border-border rounded p-4 transition-all cursor-default">
+                        <div class="text-accent font-mono text-xs mb-1">SA-01</div>
+                        <div class="text-sm font-medium">Satellite Recon</div>
+                        <div class="text-xs text-white/30 mt-1">Physical supply signals</div>
+                    </div>
+                    <div class="agent-card bg-void border border-border rounded p-4 transition-all cursor-default">
+                        <div class="text-accent font-mono text-xs mb-1">SA-02</div>
+                        <div class="text-sm font-medium">Maritime Intel</div>
+                        <div class="text-xs text-white/30 mt-1">Shipping & trade flows</div>
+                    </div>
+                    <div class="agent-card bg-void border border-border rounded p-4 transition-all cursor-default">
+                        <div class="text-accent font-mono text-xs mb-1">SA-03</div>
+                        <div class="text-sm font-medium">Supply Chain Mapper</div>
+                        <div class="text-xs text-white/30 mt-1">Production & logistics</div>
+                    </div>
+                </div>
+                <!-- Bravo -->
+                <div class="space-y-3">
+                    <div class="text-xs font-mono text-white/30 mb-2">SWARM BRAVO — GEOPOLITICAL</div>
+                    <div class="agent-card bg-void border border-border rounded p-4 transition-all cursor-default">
+                        <div class="text-accent font-mono text-xs mb-1">SA-04</div>
+                        <div class="text-sm font-medium">LatAm OSINT</div>
+                        <div class="text-xs text-white/30 mt-1">Regional intelligence</div>
+                    </div>
+                    <div class="agent-card bg-void border border-border rounded p-4 transition-all cursor-default">
+                        <div class="text-accent font-mono text-xs mb-1">SA-05</div>
+                        <div class="text-sm font-medium">China Demand Oracle</div>
+                        <div class="text-xs text-white/30 mt-1">Chinese demand signals</div>
+                    </div>
+                    <div class="agent-card bg-void border border-border rounded p-4 transition-all cursor-default">
+                        <div class="text-accent font-mono text-xs mb-1">SA-06</div>
+                        <div class="text-sm font-medium">Geopolitical Risk</div>
+                        <div class="text-xs text-white/30 mt-1">Conflict & sanctions</div>
+                    </div>
+                </div>
+                <!-- Charlie -->
+                <div class="space-y-3">
+                    <div class="text-xs font-mono text-white/30 mb-2">SWARM CHARLIE — QUANTITATIVE</div>
+                    <div class="agent-card bg-void border border-border rounded p-4 transition-all cursor-default">
+                        <div class="text-accent font-mono text-xs mb-1">SA-07</div>
+                        <div class="text-sm font-medium">Macro Regime</div>
+                        <div class="text-xs text-white/30 mt-1">Fed, yields, DXY, VIX</div>
+                    </div>
+                    <div class="agent-card bg-void border border-border rounded p-4 transition-all cursor-default">
+                        <div class="text-accent font-mono text-xs mb-1">SA-08</div>
+                        <div class="text-sm font-medium">Quantitative Alpha</div>
+                        <div class="text-xs text-white/30 mt-1">RSI, SMA, volatility</div>
+                    </div>
+                    <div class="agent-card bg-void border border-border rounded p-4 transition-all cursor-default">
+                        <div class="text-accent font-mono text-xs mb-1">SA-09</div>
+                        <div class="text-sm font-medium">Sentiment & Flow</div>
+                        <div class="text-xs text-white/30 mt-1">News tone & positioning</div>
+                    </div>
+                </div>
+                <!-- Delta -->
+                <div class="space-y-3">
+                    <div class="text-xs font-mono text-white/30 mb-2">SWARM DELTA — EXECUTION</div>
+                    <div class="agent-card bg-void border border-border rounded p-4 transition-all cursor-default border-red-900/30">
+                        <div class="text-red-400 font-mono text-xs mb-1">SA-10</div>
+                        <div class="text-sm font-medium">Risk Guardian</div>
+                        <div class="text-xs text-white/30 mt-1">VETO power</div>
+                    </div>
+                    <div class="agent-card bg-void border border-border rounded p-4 transition-all cursor-default">
+                        <div class="text-accent font-mono text-xs mb-1">SA-11</div>
+                        <div class="text-sm font-medium">Execution Engine</div>
+                        <div class="text-xs text-white/30 mt-1">Entry, SL, TP, sizing</div>
+                    </div>
+                    <div class="agent-card bg-void border border-border rounded p-4 transition-all cursor-default">
+                        <div class="text-accent font-mono text-xs mb-1">SA-12</div>
+                        <div class="text-sm font-medium">Counterintelligence</div>
+                        <div class="text-xs text-white/30 mt-1">Blind spot detection</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- COMMODITIES -->
+    <section class="py-24 border-t border-border">
+        <div class="max-w-6xl mx-auto px-6">
+            <div class="text-xs font-mono text-accent/60 mb-3 tracking-widest">COVERAGE</div>
+            <h2 class="text-3xl md:text-4xl font-bold mb-16">13 Commodities. Real-time.</h2>
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                <div class="bg-surface border border-border rounded p-4 text-center hover:border-accent/30 transition">
+                    <div class="text-2xl mb-2">🛢️</div>
+                    <div class="text-sm font-medium">Crude Oil</div>
+                    <div class="text-xs text-white/30 font-mono">WTI + Brent</div>
+                </div>
+                <div class="bg-surface border border-border rounded p-4 text-center hover:border-accent/30 transition">
+                    <div class="text-2xl mb-2">⛏️</div>
+                    <div class="text-sm font-medium">Coal</div>
+                    <div class="text-xs text-white/30 font-mono">Newcastle</div>
+                </div>
+                <div class="bg-surface border border-border rounded p-4 text-center hover:border-accent/30 transition">
+                    <div class="text-2xl mb-2">🥇</div>
+                    <div class="text-sm font-medium">Gold</div>
+                    <div class="text-xs text-white/30 font-mono">COMEX</div>
+                </div>
+                <div class="bg-surface border border-border rounded p-4 text-center hover:border-accent/30 transition">
+                    <div class="text-2xl mb-2">🔶</div>
+                    <div class="text-sm font-medium">Copper</div>
+                    <div class="text-xs text-white/30 font-mono">LME</div>
+                </div>
+                <div class="bg-surface border border-border rounded p-4 text-center hover:border-accent/30 transition">
+                    <div class="text-2xl mb-2">☕</div>
+                    <div class="text-sm font-medium">Coffee</div>
+                    <div class="text-xs text-white/30 font-mono">Arabica</div>
+                </div>
+                <div class="bg-surface border border-border rounded p-4 text-center hover:border-accent/30 transition">
+                    <div class="text-2xl mb-2">🌾</div>
+                    <div class="text-sm font-medium">Wheat</div>
+                    <div class="text-xs text-white/30 font-mono">CBOT</div>
+                </div>
+                <div class="bg-surface border border-border rounded p-4 text-center hover:border-accent/30 transition">
+                    <div class="text-2xl mb-2">🌽</div>
+                    <div class="text-sm font-medium">Corn</div>
+                    <div class="text-xs text-white/30 font-mono">CBOT</div>
+                </div>
+                <div class="bg-surface border border-border rounded p-4 text-center hover:border-accent/30 transition">
+                    <div class="text-2xl mb-2">🫘</div>
+                    <div class="text-sm font-medium">Soybeans</div>
+                    <div class="text-xs text-white/30 font-mono">CBOT</div>
+                </div>
+                <div class="bg-surface border border-border rounded p-4 text-center hover:border-accent/30 transition">
+                    <div class="text-2xl mb-2">🔥</div>
+                    <div class="text-sm font-medium">Natural Gas</div>
+                    <div class="text-xs text-white/30 font-mono">Henry Hub</div>
+                </div>
+                <div class="bg-surface border border-border rounded p-4 text-center hover:border-accent/30 transition">
+                    <div class="text-2xl mb-2">🥈</div>
+                    <div class="text-sm font-medium">Silver</div>
+                    <div class="text-xs text-white/30 font-mono">COMEX</div>
+                </div>
+                <div class="bg-surface border border-border rounded p-4 text-center hover:border-accent/30 transition">
+                    <div class="text-2xl mb-2">🔋</div>
+                    <div class="text-sm font-medium">Lithium</div>
+                    <div class="text-xs text-white/30 font-mono">EV Supply</div>
+                </div>
+                <div class="bg-surface border border-border rounded p-4 text-center hover:border-accent/30 transition">
+                    <div class="text-2xl mb-2">⚙️</div>
+                    <div class="text-sm font-medium">Nickel</div>
+                    <div class="text-xs text-white/30 font-mono">LME</div>
+                </div>
+                <div class="bg-surface border border-border rounded p-4 text-center hover:border-accent/30 transition border-accent/20">
+                    <div class="text-2xl mb-2">🛢️</div>
+                    <div class="text-sm font-medium">Brent</div>
+                    <div class="text-xs text-white/30 font-mono">ICE</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PRICING -->
+    <section id="pricing" class="py-24 border-t border-border bg-surface/50">
+        <div class="max-w-6xl mx-auto px-6">
+            <div class="text-xs font-mono text-accent/60 mb-3 tracking-widest">PRICING</div>
+            <h2 class="text-3xl md:text-4xl font-bold mb-4">Intelligence that pays for itself</h2>
+            <p class="text-white/40 max-w-xl mb-16">One good signal covers a year of subscription.</p>
+
+            <div class="grid md:grid-cols-3 gap-6 max-w-4xl">
+                <div class="bg-void border border-border rounded-lg p-8">
+                    <div class="text-xs font-mono text-white/40 mb-4">EXPLORER</div>
+                    <div class="text-4xl font-bold mb-1">$499<span class="text-lg text-white/30">/mo</span></div>
+                    <div class="text-xs text-white/30 mb-6">For curious traders</div>
+                    <ul class="space-y-3 text-sm text-white/50">
+                        <li class="flex items-center gap-2"><span class="text-accent">✓</span> 100 analyses/month</li>
+                        <li class="flex items-center gap-2"><span class="text-accent">✓</span> 3 commodities</li>
+                        <li class="flex items-center gap-2"><span class="text-accent">✓</span> Email alerts</li>
+                        <li class="flex items-center gap-2"><span class="text-accent">✓</span> Basic dashboard</li>
+                    </ul>
+                </div>
+                <div class="bg-void border-2 border-accent/30 rounded-lg p-8 relative glow">
+                    <div class="absolute -top-3 left-8 bg-accent text-void text-xs font-mono font-bold px-3 py-1 rounded">POPULAR</div>
+                    <div class="text-xs font-mono text-accent/80 mb-4">TRADER</div>
+                    <div class="text-4xl font-bold mb-1">$1,999<span class="text-lg text-white/30">/mo</span></div>
+                    <div class="text-xs text-white/30 mb-6">For active traders</div>
+                    <ul class="space-y-3 text-sm text-white/50">
+                        <li class="flex items-center gap-2"><span class="text-accent">✓</span> Unlimited analyses</li>
+                        <li class="flex items-center gap-2"><span class="text-accent">✓</span> All 13 commodities</li>
+                        <li class="flex items-center gap-2"><span class="text-accent">✓</span> Paper trading</li>
+                        <li class="flex items-center gap-2"><span class="text-accent">✓</span> API access</li>
+                        <li class="flex items-center gap-2"><span class="text-accent">✓</span> Priority support</li>
+                    </ul>
+                </div>
+                <div class="bg-void border border-border rounded-lg p-8">
+                    <div class="text-xs font-mono text-white/40 mb-4">ENTERPRISE</div>
+                    <div class="text-4xl font-bold mb-1">Custom</div>
+                    <div class="text-xs text-white/30 mb-6">Hedge funds & mineras</div>
+                    <ul class="space-y-3 text-sm text-white/50">
+                        <li class="flex items-center gap-2"><span class="text-accent">✓</span> White-label</li>
+                        <li class="flex items-center gap-2"><span class="text-accent">✓</span> Dedicated agents</li>
+                        <li class="flex items-center gap-2"><span class="text-accent">✓</span> Custom data feeds</li>
+                        <li class="flex items-center gap-2"><span class="text-accent">✓</span> On-premise option</li>
+                        <li class="flex items-center gap-2"><span class="text-accent">✓</span> SLA & support</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="py-24 border-t border-border">
+        <div class="max-w-6xl mx-auto px-6 text-center">
+            <h2 class="text-3xl md:text-5xl font-bold mb-6">Ready to see what the market misses?</h2>
+            <p class="text-white/40 max-w-lg mx-auto mb-10">Join the beta. Free analysis available now.</p>
+            <a href="https://meteoro-x-api.onrender.com" target="_blank"
+               class="inline-block bg-accent text-void font-mono font-semibold px-10 py-4 rounded text-lg hover:bg-accentDim transition glow">
+                Launch Platform →
+            </a>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="border-t border-border py-12">
+        <div class="max-w-6xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
+            <div class="flex items-center gap-3">
+                <span class="font-mono text-sm text-white/40">METEORO</span>
+                <span class="text-xs text-white/20">|</span>
+                <span class="text-xs text-white/20">Autonomous Commodity Intelligence</span>
+            </div>
+            <div class="text-xs text-white/20">
+                © 2026 Meteoro. Built in Bogotá for the world.
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>
