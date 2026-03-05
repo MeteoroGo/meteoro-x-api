@@ -37,25 +37,58 @@ except ImportError:
 # RATE LIMITING — Prevent 429 errors on free tier APIs
 # ═══════════════════════════════════════════════════════════════
 
-# Max concurrent calls per provider (Gemini free = 15 RPM, so ~3 concurrent is safe)
-_provider_semaphores: Dict[str, asyncio.Semaphore] = {}
-PROVIDER_CONCURRENCY = {
-    "gemini": 3,      # Gemini free tier: 15 RPM → max 3 concurrent
-    "deepseek": 5,    # DeepSeek: generous limits when funded
-    "anthropic": 5,   # Anthropic: standard rate
-    "kimi": 2,        # Disabled but just in case
+# ═══════════════════════════════════════════════════════════════
+# GLOBAL RATE LIMITER — Enforces minimum interval between API calls
+# Gemini free tier = 15 RPM = 1 call per 4 seconds
+# ═══════════════════════════════════════════════════════════════
+
+MAX_RETRIES = 4
+RETRY_BASE_DELAY = 5.0  # seconds (5s, 10s, 20s, 40s)
+
+
+class ProviderRateLimiter:
+    """Rate limiter that enforces minimum interval between calls to a provider."""
+
+    def __init__(self, calls_per_minute: int = 15):
+        self.min_interval = 60.0 / calls_per_minute  # seconds between calls
+        self._lock = None  # Created lazily per event loop
+        self.last_call_time = 0.0
+
+    def _get_lock(self) -> asyncio.Lock:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
+
+    async def acquire(self):
+        """Wait until it's safe to make a call."""
+        lock = self._get_lock()
+        async with lock:
+            now = time.time()
+            elapsed = now - self.last_call_time
+            if elapsed < self.min_interval:
+                wait_time = self.min_interval - elapsed
+                logger.info(f"Rate limiter: waiting {wait_time:.1f}s")
+                await asyncio.sleep(wait_time)
+            self.last_call_time = time.time()
+
+
+# Per-provider rate limiters
+_rate_limiters: Dict[str, ProviderRateLimiter] = {}
+
+PROVIDER_RPM = {
+    "gemini": 12,     # Gemini free: 15 RPM, use 12 for safety margin
+    "deepseek": 60,   # DeepSeek: generous when funded
+    "anthropic": 50,  # Anthropic: standard
+    "kimi": 10,       # Disabled
 }
 
-MAX_RETRIES = 3
-RETRY_BASE_DELAY = 2.0  # seconds, doubles each retry (2s, 4s, 8s)
 
-
-def _get_semaphore(provider: str) -> asyncio.Semaphore:
-    """Get or create a semaphore for a provider."""
-    if provider not in _provider_semaphores:
-        limit = PROVIDER_CONCURRENCY.get(provider, 3)
-        _provider_semaphores[provider] = asyncio.Semaphore(limit)
-    return _provider_semaphores[provider]
+def _get_rate_limiter(provider: str) -> ProviderRateLimiter:
+    """Get or create a rate limiter for a provider."""
+    if provider not in _rate_limiters:
+        rpm = PROVIDER_RPM.get(provider, 15)
+        _rate_limiters[provider] = ProviderRateLimiter(calls_per_minute=rpm)
+    return _rate_limiters[provider]
 
 
 class ModelProvider(Enum):
@@ -132,21 +165,45 @@ MODELS: Dict[str, ModelProfile] = {
     ),
 }
 
+# ═══════════════════════════════════════════════════════════════
+# AGENT → MODEL ROUTING
+# Currently ALL agents route to gemini-flash (only working provider)
+# DeepSeek: 402 Payment Required (needs $5 credits)
+# Anthropic: API key not configured yet
+# Once funded, re-route agents to their ideal models.
+# ═══════════════════════════════════════════════════════════════
 AGENT_MODEL_MAP: Dict[str, str] = {
-    "satellite_recon":       "claude-haiku",
-    "maritime_intel":        "claude-haiku",
-    "supply_chain_mapper":   "deepseek-v3",
-    "latam_osint":           "claude-haiku",
-    "china_demand_oracle":   "deepseek-v3",  # DeepSeek es chino, habla mandarin nativo
+    "satellite_recon":       "gemini-flash",
+    "maritime_intel":        "gemini-flash",
+    "supply_chain_mapper":   "gemini-flash",
+    "latam_osint":           "gemini-flash",
+    "china_demand_oracle":   "gemini-flash",
     "geopolitical_risk":     "gemini-flash",
-    "macro_regime":          "deepseek-v3",
-    "quant_alpha":           "deepseek-v3",
-    "sentiment_flow":        "claude-haiku",
-    "risk_guardian":         "claude-haiku",
-    "execution_engine":      "claude-haiku",
-    "counterintelligence":   "deepseek-v3",
-    "commander":             "claude-haiku",
+    "macro_regime":          "gemini-flash",
+    "quant_alpha":           "gemini-flash",
+    "sentiment_flow":        "gemini-flash",
+    "risk_guardian":         "gemini-flash",
+    "execution_engine":      "gemini-flash",
+    "counterintelligence":   "gemini-flash",
+    "commander":             "gemini-flash",
 }
+
+# IDEAL routing (re-enable when providers are funded):
+# AGENT_MODEL_MAP_IDEAL = {
+#     "satellite_recon":       "claude-haiku",
+#     "maritime_intel":        "claude-haiku",
+#     "supply_chain_mapper":   "deepseek-v3",
+#     "latam_osint":           "claude-haiku",
+#     "china_demand_oracle":   "deepseek-v3",  # DeepSeek = Chinese model
+#     "geopolitical_risk":     "gemini-flash",
+#     "macro_regime":          "deepseek-v3",
+#     "quant_alpha":           "deepseek-v3",
+#     "sentiment_flow":        "claude-haiku",
+#     "risk_guardian":         "claude-haiku",
+#     "execution_engine":      "claude-haiku",
+#     "counterintelligence":   "deepseek-v3",
+#     "commander":             "claude-haiku",
+# }
 
 FALLBACK_CHAIN: Dict[str, List[str]] = {
     "claude-haiku":  ["deepseek-v3", "gemini-flash"],
@@ -302,15 +359,16 @@ async def call_llm(
         if not caller:
             continue
 
-        # Get provider semaphore for rate limiting
-        sem = _get_semaphore(profile.provider.value)
+        # Get provider rate limiter
+        rate_limiter = _get_rate_limiter(profile.provider.value)
 
         # Retry loop for 429 errors
         for attempt in range(MAX_RETRIES):
             t0 = time.time()
             try:
-                async with sem:  # Limit concurrent calls per provider
-                    result = await caller(profile, system_prompt, user_message)
+                # Wait for rate limiter before making call
+                await rate_limiter.acquire()
+                result = await caller(profile, system_prompt, user_message)
 
                 latency = int((time.time() - t0) * 1000)
                 inp = result.get("input_tokens", 0)

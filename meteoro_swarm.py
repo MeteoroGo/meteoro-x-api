@@ -240,8 +240,8 @@ class MeteorSwarm:
     12 Super Agents with DeepSeek + Gemini doing actual analysis.
     """
 
-    TIME_BUDGET_MS = 60_000  # 60 seconds (batched LLM calls + rate limit delays)
-    AGENT_TIMEOUT_MS = 20_000  # 20 seconds per agent (includes retry wait)
+    TIME_BUDGET_MS = 120_000  # 120 seconds (rate-limited LLM calls)
+    AGENT_TIMEOUT_MS = 30_000  # 30 seconds per agent (includes rate limit wait)
 
     def __init__(self):
         self.agent_configs = AGENT_CONFIGS
@@ -312,10 +312,10 @@ class MeteorSwarm:
 
         all_results: List[SuperAgentResult] = []
 
-        # Run agents 1-9 in BATCHES of 3 (avoid rate limiting LLM providers)
-        # Gemini free tier = 15 RPM, so 3 concurrent + stagger is safe
-        BATCH_SIZE = 3
-        BATCH_DELAY = 1.5  # seconds between batches
+        # Run agents 1-9 in BATCHES of 2 (Gemini free = 15 RPM)
+        # Rate limiter in router enforces 5s spacing between calls
+        BATCH_SIZE = 2
+        BATCH_DELAY = 0.5  # short delay — rate limiter handles spacing
 
         intelligence_agents = self.agent_configs[:9]  # Agents 1-9
         num_batches = (len(intelligence_agents) + BATCH_SIZE - 1) // BATCH_SIZE
