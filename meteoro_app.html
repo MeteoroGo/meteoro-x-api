@@ -1,1004 +1,938 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meteoro — Autonomous Commodity Intelligence</title>
+    <title>Meteoro X — Autonomous Commodity Intelligence</title>
 
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <!-- Globe.gl -->
+    <script src="https://unpkg.com/globe.gl@2.27.2/dist/globe.gl.min.js"></script>
 
-    <!-- React 18 and Babel -->
+    <!-- React 18 + Babel -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         html, body {
-            width: 100%;
-            height: 100%;
-            background: #0a0a0a;
-            color: #e5e5e5;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            font-size: 14px;
-            line-height: 1.6;
-            overflow-x: hidden;
+            width: 100%; height: 100%;
+            background: #000008;
+            color: #e0e8f0;
+            font-family: 'Inter', -apple-system, sans-serif;
+            overflow: hidden;
+            cursor: crosshair;
         }
 
-        #root {
-            width: 100%;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
+        /* ═══ GLOBE ═══ */
+        #globeViz {
+            position: fixed; inset: 0;
+            z-index: 0;
+            transition: filter 0.8s ease;
+            animation: globe-in 2.5s ease-out;
+        }
+        @keyframes globe-in {
+            from { opacity: 0; } to { opacity: 1; }
         }
 
-        /* Main Content */
-        .main-content {
-            flex: 1;
+        /* ═══ VISUAL MODES ═══ */
+        body.nvg #globeViz { filter: saturate(0) brightness(0.5) contrast(1.4); }
+        body.nvg .hud-panel { border-color: #00ff41 !important; }
+        body.nvg .hud-panel, body.nvg .hud-val, body.nvg .hud-lbl,
+        body.nvg .mode-btn, body.nvg #alert-text, body.nvg #logo-main,
+        body.nvg #logo-sub { color: #00ff41 !important; }
+        body.nvg .hud-val { text-shadow: 0 0 20px #00ff41 !important; }
+        body.nvg #nvg-over, body.nvg #scanlines { display: block; }
+
+        body.flir #globeViz { filter: saturate(1.8) contrast(1.5) hue-rotate(-15deg) brightness(0.7); }
+        body.flir .hud-panel { border-color: #ff4400 !important; }
+        body.flir .hud-val { color: #ff6600 !important; text-shadow: 0 0 20px #ff4400 !important; }
+        body.flir #logo-main, body.flir #logo-sub { color: #ff6600 !important; }
+
+        body.sat #globeViz { filter: brightness(1.15) contrast(1.1) saturate(0.7); }
+
+        /* ═══ OVERLAYS ═══ */
+        #vignette {
+            position: fixed; inset: 0; z-index: 1;
+            background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,8,0.7) 100%);
+            pointer-events: none;
+        }
+        #nvg-over {
+            display: none; position: fixed; inset: 0; z-index: 2;
+            background: radial-gradient(ellipse at center, rgba(0,255,65,0.02) 0%, rgba(0,40,10,0.35) 100%);
+            pointer-events: none; mix-blend-mode: screen;
+        }
+        #scanlines {
+            display: none; position: fixed; inset: 0; z-index: 3;
+            background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,65,0.03) 2px, rgba(0,255,65,0.03) 4px);
+            pointer-events: none; animation: scanmove 8s linear infinite;
+        }
+        @keyframes scanmove { to { transform: translateY(4px); } }
+
+        /* ═══ HUD PANELS ═══ */
+        .hud-panel {
+            position: fixed;
+            background: rgba(0,6,20,0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(0,180,255,0.15);
+            z-index: 10;
+            padding: 14px 18px;
+            transition: border-color 0.5s, color 0.5s;
+        }
+
+        /* Logo — top left */
+        #hud-logo { top: 20px; left: 20px; }
+        #logo-main {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900; font-size: 20px; color: #fff;
+            letter-spacing: 5px;
+        }
+        #logo-sub {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 10px; color: #00b4ff; letter-spacing: 3px; margin-top: 3px;
+        }
+        #live-dot {
+            display: inline-block; width: 7px; height: 7px;
+            background: #ff0040; border-radius: 50%; margin-left: 10px;
+            animation: livep 1.5s ease-in-out infinite; vertical-align: middle;
+        }
+        @keyframes livep { 0%,100%{opacity:1;box-shadow:0 0 8px #ff0040} 50%{opacity:0.3;box-shadow:0 0 2px #ff0040} }
+
+        /* Modes — top right */
+        #hud-modes { top: 20px; right: 20px; display: flex; gap: 2px; padding: 4px; }
+        .mode-btn {
+            background: transparent; border: 1px solid rgba(0,180,255,0.12);
+            color: #506070; font-family: 'Share Tech Mono', monospace;
+            font-size: 10px; padding: 7px 14px; cursor: pointer;
+            letter-spacing: 2px; transition: all 0.3s;
+        }
+        .mode-btn:hover { color: #00b4ff; border-color: rgba(0,180,255,0.4); }
+        .mode-btn.active {
+            background: rgba(0,180,255,0.1); color: #00d4ff;
+            border-color: #00b4ff; text-shadow: 0 0 10px rgba(0,180,255,0.5);
+        }
+
+        /* Alerts — top center */
+        #hud-alerts {
+            top: 20px; left: 50%; transform: translateX(-50%);
+            max-width: 520px; width: 80vw; text-align: center;
+            padding: 8px 18px; border-color: rgba(255,60,60,0.12);
+        }
+        #alert-pfx { color: #ff4444; font-family: 'Share Tech Mono', monospace; font-size: 9px; letter-spacing: 3px; }
+        #alert-text {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 10px; color: #8090a0; margin-top: 3px;
+            min-height: 16px; transition: opacity 0.5s;
+        }
+
+        /* Layers — left center */
+        #hud-layers { top: 50%; left: 20px; transform: translateY(-50%); padding: 10px 14px; }
+        .lyr-row {
+            display: flex; align-items: center; gap: 8px; padding: 5px 0;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 9px; letter-spacing: 2px; color: #405060;
+            cursor: pointer; transition: color 0.3s;
+        }
+        .lyr-row:hover { color: #00b4ff; }
+        .lyr-row.on { color: #90a0b0; }
+        .lyr-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+        .lyr-row.on .lyr-dot { box-shadow: 0 0 6px currentColor; }
+
+        /* Stats — bottom left */
+        #hud-stats { bottom: 20px; left: 20px; display: flex; gap: 18px; }
+        .stat-blk { text-align: center; }
+        .hud-val {
+            font-family: 'Orbitron', sans-serif; font-weight: 700;
+            font-size: 22px; color: #00d4ff;
+            text-shadow: 0 0 12px rgba(0,180,255,0.3);
+        }
+        .hud-lbl {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 8px; color: #405060; letter-spacing: 3px; margin-top: 2px;
+        }
+
+        /* Coords — bottom right */
+        #hud-coords {
+            bottom: 20px; right: 20px;
+            font-family: 'Share Tech Mono', monospace; font-size: 10px; text-align: right;
+        }
+        .crd { color: #304050; margin-bottom: 2px; }
+        .crd span { color: #00a0cc; }
+
+        /* Legend — bottom center */
+        #hud-legend {
+            bottom: 20px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 14px; padding: 6px 16px;
+        }
+        .leg-item {
+            display: flex; align-items: center; gap: 5px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 8px; letter-spacing: 1px; color: #405060;
+        }
+        .leg-bar { width: 16px; height: 2px; border-radius: 1px; }
+
+        /* Version */
+        #ver {
+            position: fixed; bottom: 5px; right: 20px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 8px; color: #182030; letter-spacing: 3px; z-index: 10;
+        }
+
+        /* ═══ REACT UI OVERLAY ═══ */
+        #react-root {
+            position: fixed; inset: 0;
+            z-index: 20;
+            pointer-events: none;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            padding: 80px 20px 60px;
-            max-width: 700px;
-            margin: 0 auto;
-            width: 100%;
+            justify-content: flex-end;
         }
 
-        /* Logo */
-        .logo {
-            font-family: 'Playfair Display', Georgia, serif;
-            font-size: 48px;
-            font-weight: 700;
-            letter-spacing: 4px;
-            text-transform: uppercase;
-            color: #e5e5e5;
-            margin-bottom: 8px;
+        .glass {
+            background: rgba(2, 6, 18, 0.88);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(0,180,255,0.08);
+            border-radius: 12px;
+            pointer-events: auto;
+        }
+
+        /* Center prompt */
+        .center-prompt {
+            pointer-events: none;
             text-align: center;
-            line-height: 1;
+            margin-bottom: auto;
+            margin-top: 22vh;
+            animation: fadein 1.5s ease 0.5s both;
         }
+        @keyframes fadein { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        .logo-dot {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            background: #06D6A0;
-            border-radius: 50%;
-            margin-right: 4px;
-            vertical-align: middle;
+        .prompt-logo {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900; font-size: 42px; color: #fff;
+            letter-spacing: 8px; margin-bottom: 6px;
         }
-
-        /* Tagline under logo */
-        .tagline {
-            color: #888;
-            font-size: 11px;
-            text-align: center;
-            margin-bottom: 56px;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            font-weight: 500;
+        .prompt-logo-dot {
+            display: inline-block; width: 8px; height: 8px;
+            background: #06D6A0; border-radius: 50%;
+            margin-right: 6px; vertical-align: middle;
         }
-
-        /* Main question heading */
-        .main-question {
-            font-family: 'Playfair Display', Georgia, serif;
-            font-size: 32px;
-            font-weight: 700;
-            color: #e5e5e5;
-            text-align: center;
-            margin-bottom: 48px;
-            letter-spacing: 0.5px;
-            line-height: 1.3;
+        .prompt-tagline {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 11px; color: #506070; letter-spacing: 4px;
+            text-transform: uppercase; margin-bottom: 36px;
         }
-
-        /* Search Input */
-        .search-container {
-            width: 100%;
-            margin-bottom: 32px;
-        }
-
-        .search-input-wrapper {
-            position: relative;
-            display: flex;
-            align-items: center;
-        }
-
-        .search-input {
-            width: 100%;
-            padding: 14px 20px;
-            background: #0a0a0a;
-            border: 1px solid rgba(255, 255, 255, 0.06);
-            border-radius: 8px;
-            color: #e5e5e5;
+        .prompt-question {
             font-family: 'Inter', sans-serif;
-            font-size: 15px;
-            outline: none;
-            transition: all 0.3s ease;
-            padding-right: 48px;
+            font-size: 26px; font-weight: 300; color: #c0d0e0;
+            letter-spacing: 0.5px; line-height: 1.4;
         }
 
-        .search-input::placeholder {
-            color: #666;
+        /* Search bar */
+        .search-bar {
+            width: 100%; max-width: 580px;
+            margin-bottom: 60px; padding: 0 20px;
+            pointer-events: auto;
         }
-
-        .search-input:focus {
-            border-color: rgba(255, 255, 255, 0.12);
-            background: #0d0d0d;
+        .search-wrap { position: relative; display: flex; align-items: center; }
+        .search-in {
+            width: 100%; padding: 14px 48px 14px 20px;
+            background: rgba(2,6,18,0.9);
+            border: 1px solid rgba(0,180,255,0.1);
+            border-radius: 10px; color: #e0e8f0;
+            font-family: 'Inter', sans-serif; font-size: 14px;
+            outline: none; transition: all 0.3s;
+            backdrop-filter: blur(20px);
         }
-
-        .search-button {
-            position: absolute;
-            right: 16px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            color: #666;
-            cursor: pointer;
-            font-size: 16px;
-            padding: 4px 8px;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .search-in::placeholder { color: #405060; }
+        .search-in:focus { border-color: rgba(0,180,255,0.25); background: rgba(2,8,24,0.95); }
+        .search-btn {
+            position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+            background: none; border: none; color: #506070;
+            cursor: pointer; font-size: 18px; padding: 4px 8px; transition: color 0.2s;
         }
+        .search-btn:hover { color: #00b4ff; }
 
-        .search-button:hover {
-            color: #888;
+        /* Chips */
+        .chips-bar {
+            display: flex; gap: 8px; flex-wrap: wrap;
+            justify-content: center; margin-bottom: 16px;
+            pointer-events: auto; padding: 0 20px;
         }
-
-        /* Quick Prompt Chips - Horizontal */
-        .chips-container {
-            display: flex;
-            gap: 8px;
-            width: 100%;
-            margin-bottom: 48px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-
         .chip {
-            padding: 8px 14px;
-            background: transparent;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 20px;
-            color: #888;
-            font-size: 13px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-align: center;
-            font-weight: 500;
-            white-space: nowrap;
+            padding: 7px 14px;
+            background: rgba(0,180,255,0.04);
+            border: 1px solid rgba(0,180,255,0.1);
+            border-radius: 20px; color: #607080;
+            font-size: 12px; cursor: pointer;
+            font-weight: 500; white-space: nowrap;
+            transition: all 0.3s; font-family: 'Inter', sans-serif;
         }
-
         .chip:hover {
-            border-color: rgba(255, 255, 255, 0.15);
-            color: #999;
-            background: rgba(255, 255, 255, 0.02);
+            border-color: rgba(0,180,255,0.3); color: #00b4ff;
+            background: rgba(0,180,255,0.06);
         }
 
-        /* Analysis Results Area */
-        .results-area {
-            width: 100%;
-        }
-
-        /* Analyzing Header */
-        .analyzing-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 32px;
-            font-size: 14px;
-            color: #888;
-        }
-
-        .analyzing-dot {
-            width: 6px;
-            height: 6px;
-            background: #06D6A0;
-            border-radius: 50%;
-            animation: pulse-dot 1.5s ease-in-out infinite;
-        }
-
-        @keyframes pulse-dot {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.4; }
-        }
-
-        /* Progress Steps - Clean Timeline */
-
-        .progress-step {
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-            padding: 8px 0;
-            color: #666;
-            font-size: 13px;
-            line-height: 1.5;
-            transition: all 0.3s ease;
-        }
-
-        .progress-step.active {
-            color: #888;
-        }
-
-        .progress-step.completed {
-            color: #555;
-        }
-
-        .step-icon {
-            width: 16px;
-            height: 16px;
-            min-width: 16px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 10px;
-            font-weight: 600;
-            flex-shrink: 0;
-            margin-top: 2px;
-        }
-
-        .step-icon.pending {
-            background: rgba(255, 255, 255, 0.06);
-            color: #555;
-        }
-
-        .step-icon.active {
-            background: rgba(255, 255, 255, 0.08);
-            color: #666;
-            animation: spin-subtle 1.8s linear infinite;
-        }
-
-        .step-icon.completed {
-            background: rgba(255, 255, 255, 0.05);
-            color: #555;
-        }
-
-        @keyframes spin-subtle {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        /* Signal Card - Clean */
-        .signal-card {
-            background: transparent;
-            border: 1px solid rgba(255, 255, 255, 0.06);
-            border-radius: 8px;
-            padding: 28px;
-            margin-bottom: 32px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 32px;
-        }
-
-        .signal-header {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .signal-direction {
-            font-size: 11px;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            font-weight: 600;
-        }
-
-        .signal-direction.long {
-            color: #10B981;
-        }
-
-        .signal-direction.short {
-            color: #EF4444;
-        }
-
-        .signal-ticker {
-            font-size: 28px;
-            font-weight: 700;
-            color: #e5e5e5;
-        }
-
-        .conviction-gauge {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .gauge-svg {
-            width: 100px;
-            height: 100px;
-        }
-
-        .gauge-label {
-            font-size: 11px;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .signal-metrics {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        .metric-row {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .metric-label {
-            font-size: 11px;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .metric-value {
-            font-size: 16px;
-            font-weight: 600;
-            color: #e5e5e5;
-        }
-
-        /* Analysis Narrative - LLM-style output */
-        .analysis-narrative {
-            margin-bottom: 32px;
-        }
-
-        .narrative-body {
-            color: #c0c0c0;
-            font-size: 14px;
-            line-height: 1.8;
-        }
-
-        .narrative-body p {
-            margin-bottom: 16px;
-        }
-
-        .narrative-body p:last-child {
-            margin-bottom: 0;
-        }
-
-        .analysis-divider {
-            width: 32px;
-            height: 1px;
-            background: rgba(255, 255, 255, 0.08);
-            margin: 28px 0;
-        }
-
-        .analysis-meta {
-            display: flex;
-            gap: 16px;
-            margin-top: 24px;
-            padding-top: 20px;
-            border-top: 1px solid rgba(255, 255, 255, 0.04);
-        }
-
-        .meta-item {
-            font-size: 11px;
-            color: #555;
-            letter-spacing: 0.3px;
-        }
-
-        .meta-item span {
-            color: #777;
-        }
-
-        /* Footer */
-        .footer {
-            background: transparent;
-            border-top: none;
-            padding: 32px 20px;
-            text-align: center;
-            color: #555;
-            font-size: 11px;
-            margin-top: auto;
-        }
-
-        /* Reset Button */
-        .reset-button {
-            padding: 10px 20px;
-            background: transparent;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 6px;
-            color: #888;
-            cursor: pointer;
-            font-size: 12px;
-            font-family: 'Inter', sans-serif;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            margin-top: 24px;
-        }
-
-        .reset-button:hover {
-            border-color: rgba(255, 255, 255, 0.15);
-            color: #999;
-            background: rgba(255, 255, 255, 0.02);
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .main-content {
-                padding: 60px 16px 40px;
-            }
-
-            .logo {
-                font-size: 36px;
-                letter-spacing: 2px;
-            }
-
-            .main-question {
-                font-size: 24px;
-                margin-bottom: 40px;
-            }
-
-            .search-container {
-                max-width: 100%;
-            }
-
-            .signal-card {
-                flex-direction: column;
-                gap: 24px;
-                align-items: flex-start;
-            }
-
-            .gauge-svg {
-                width: 80px;
-                height: 80px;
-            }
-
-            .chips-container {
-                flex-direction: column;
-                gap: 12px;
-            }
-
-            .chip {
-                width: 100%;
-            }
-        }
-
-        /* Stream counter */
-        .stream-counter {
-            font-size: 11px;
-            color: #06D6A0;
-            margin-top: 12px;
-            letter-spacing: 0.5px;
-            font-weight: 500;
-        }
-
-        /* Auto-scroll progress area */
-        .progress-steps {
-            max-height: 320px;
-            overflow-y: auto;
+        /* Analysis panel */
+        .analysis-panel {
+            width: 100%; max-width: 580px;
+            max-height: 55vh; overflow-y: auto;
+            margin-bottom: 12px; padding: 24px;
+            pointer-events: auto;
             scrollbar-width: none;
-            -ms-overflow-style: none;
-            margin-bottom: 48px;
+        }
+        .analysis-panel::-webkit-scrollbar { display: none; }
+
+        .a-header { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+        .a-dot {
+            width: 6px; height: 6px; background: #06D6A0; border-radius: 50%;
+            animation: apulse 1.5s ease-in-out infinite;
+        }
+        @keyframes apulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        .a-label { font-size: 13px; color: #607080; font-weight: 500; }
+
+        .a-steps { max-height: 240px; overflow-y: auto; scrollbar-width: none; }
+        .a-steps::-webkit-scrollbar { display: none; }
+
+        .a-step {
+            display: flex; align-items: flex-start; gap: 10px;
+            padding: 5px 0; font-size: 12px; color: #506070;
+            line-height: 1.5; transition: all 0.3s;
+            animation: stepin 0.3s ease;
+        }
+        @keyframes stepin { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: translateY(0); } }
+        .a-step.done { color: #405060; }
+        .a-step.now { color: #708090; }
+        .a-icon {
+            width: 14px; height: 14px; min-width: 14px;
+            border-radius: 50%; display: flex; align-items: center;
+            justify-content: center; font-size: 8px; font-weight: 700;
+            margin-top: 2px; flex-shrink: 0;
+        }
+        .a-icon.pend { background: rgba(0,180,255,0.06); color: #405060; }
+        .a-icon.spin { background: rgba(0,180,255,0.08); color: #506070; animation: aspin 1.8s linear infinite; }
+        .a-icon.chk { background: rgba(6,214,160,0.08); color: #06D6A0; }
+        @keyframes aspin { to { transform: rotate(360deg); } }
+
+        .a-counter {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 10px; color: #06D6A0; margin-top: 8px; letter-spacing: 0.5px;
         }
 
-        .progress-steps::-webkit-scrollbar {
-            display: none;
+        /* Signal card */
+        .sig-card {
+            border: 1px solid rgba(0,180,255,0.08);
+            border-radius: 10px; padding: 24px;
+            margin-bottom: 20px; display: flex;
+            justify-content: space-between; align-items: center;
+            gap: 24px; background: rgba(0,10,30,0.4);
         }
-
-        /* Loading animation */
-        @keyframes fade-in {
-            from {
-                opacity: 0;
-                transform: translateY(-4px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        .sig-dir {
+            font-size: 10px; text-transform: uppercase;
+            letter-spacing: 1px; font-weight: 600; margin-bottom: 2px;
         }
+        .sig-dir.long { color: #10B981; }
+        .sig-dir.short { color: #EF4444; }
+        .sig-ticker { font-size: 26px; font-weight: 700; color: #e5e5e5; }
 
-        .fade-in {
-            animation: fade-in 0.3s ease;
+        .gauge-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+        .gauge-svg { width: 80px; height: 80px; }
+        .gauge-lbl { font-size: 9px; color: #506070; text-transform: uppercase; letter-spacing: 1px; }
+
+        .sig-metrics { display: flex; flex-direction: column; gap: 12px; }
+        .m-label { font-size: 10px; color: #506070; text-transform: uppercase; letter-spacing: 0.5px; }
+        .m-value { font-size: 15px; font-weight: 600; color: #d0dce8; }
+
+        /* Narrative */
+        .narrative { margin-bottom: 20px; }
+        .narrative p { color: #90a0b0; font-size: 13px; line-height: 1.8; margin-bottom: 12px; }
+        .narrative p:last-child { margin-bottom: 0; }
+
+        .a-meta {
+            display: flex; gap: 14px; padding-top: 14px;
+            border-top: 1px solid rgba(0,180,255,0.06);
+        }
+        .a-meta-item {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 10px; color: #405060;
+        }
+        .a-meta-item span { color: #607080; }
+
+        /* Reset */
+        .reset-btn {
+            padding: 8px 18px; background: transparent;
+            border: 1px solid rgba(0,180,255,0.1);
+            border-radius: 6px; color: #506070; cursor: pointer;
+            font-size: 11px; font-family: 'Inter', sans-serif;
+            font-weight: 500; transition: all 0.3s; margin-top: 12px;
+        }
+        .reset-btn:hover { border-color: rgba(0,180,255,0.3); color: #00b4ff; }
+
+        /* ═══ RESPONSIVE ═══ */
+        @media (max-width: 768px) {
+            #hud-logo, #hud-modes, #hud-alerts, #hud-layers { display: none; }
+            #hud-stats { bottom: 10px; left: 10px; }
+            #hud-coords { display: none; }
+            #hud-legend { display: none; }
+            .center-prompt { margin-top: 15vh; }
+            .prompt-logo { font-size: 28px; letter-spacing: 4px; }
+            .prompt-question { font-size: 20px; }
+            .search-bar { max-width: 100%; margin-bottom: 40px; }
+            .sig-card { flex-direction: column; gap: 16px; align-items: flex-start; }
         }
     </style>
 </head>
 <body>
-    <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+<!-- Globe -->
+<div id="globeViz"></div>
 
-        // Utility function to get API base URL
-        const getApiBase = () => {
-            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-                return 'http://localhost:8000';
-            }
-            return window.location.origin;
+<!-- Overlays -->
+<div id="vignette"></div>
+<div id="nvg-over"></div>
+<div id="scanlines"></div>
+
+<!-- HUD: Logo -->
+<div id="hud-logo" class="hud-panel">
+    <div id="logo-main">METEORO X</div>
+    <div id="logo-sub">W O R L D V I E W <span id="live-dot"></span></div>
+</div>
+
+<!-- HUD: Modes -->
+<div id="hud-modes" class="hud-panel">
+    <button class="mode-btn active" data-mode="default">DEFAULT</button>
+    <button class="mode-btn" data-mode="nvg">NVG</button>
+    <button class="mode-btn" data-mode="flir">FLIR</button>
+    <button class="mode-btn" data-mode="sat">SAT</button>
+</div>
+
+<!-- HUD: Alerts -->
+<div id="hud-alerts" class="hud-panel">
+    <div id="alert-pfx">▲ INTELLIGENCE FEED</div>
+    <div id="alert-text">Initializing global surveillance mesh...</div>
+</div>
+
+<!-- HUD: Layers -->
+<div id="hud-layers" class="hud-panel">
+    <div class="lyr-row on" data-layer="ports"><span class="lyr-dot" style="background:#00d4ff"></span> PORTS</div>
+    <div class="lyr-row on" data-layer="mines"><span class="lyr-dot" style="background:#ff8800"></span> MINES</div>
+    <div class="lyr-row on" data-layer="routes"><span class="lyr-dot" style="background:#ff3366"></span> ROUTES</div>
+    <div class="lyr-row on" data-layer="choke"><span class="lyr-dot" style="background:#ffcc00"></span> CHOKEPOINTS</div>
+</div>
+
+<!-- HUD: Stats -->
+<div id="hud-stats" class="hud-panel">
+    <div class="stat-blk"><div class="hud-val" id="s-ports">0</div><div class="hud-lbl">PORTS</div></div>
+    <div class="stat-blk"><div class="hud-val" id="s-vessels">0</div><div class="hud-lbl">VESSELS</div></div>
+    <div class="stat-blk"><div class="hud-val" id="s-src">0</div><div class="hud-lbl">SOURCES</div></div>
+</div>
+
+<!-- HUD: Coords -->
+<div id="hud-coords" class="hud-panel">
+    <div class="crd">LAT <span id="c-lat">0.000</span></div>
+    <div class="crd">LNG <span id="c-lng">-45.000</span></div>
+    <div class="crd">ALT <span id="c-alt">2.80</span></div>
+    <div class="crd" style="margin-top:6px;border-top:1px solid rgba(0,180,255,0.08);padding-top:6px">
+        UTC <span id="c-utc">--:--:--</span>
+    </div>
+</div>
+
+<!-- Legend -->
+<div id="hud-legend" class="hud-panel">
+    <div class="leg-item"><span class="leg-bar" style="background:#ff3333"></span>COAL</div>
+    <div class="leg-item"><span class="leg-bar" style="background:#ff8800"></span>COPPER</div>
+    <div class="leg-item"><span class="leg-bar" style="background:#ffffff"></span>IRON</div>
+    <div class="leg-item"><span class="leg-bar" style="background:#ffd700"></span>GOLD</div>
+    <div class="leg-item"><span class="leg-bar" style="background:#00ccff"></span>COBALT</div>
+    <div class="leg-item"><span class="leg-bar" style="background:#cc66ff"></span>NICKEL</div>
+</div>
+
+<div id="ver">METEORO · v9.0</div>
+
+<!-- React Root -->
+<div id="react-root"></div>
+
+<!-- ═══ GLOBE INITIALIZATION ═══ -->
+<script>
+(function() {
+    if (typeof Globe === 'undefined') { console.warn('Globe.gl not loaded'); return; }
+
+    const COLORS = {
+        coal:'#ff3333', copper:'#ff8800', iron:'#ffffff', gold:'#ffd700',
+        cobalt:'#00ccff', nickel:'#cc66ff', copper_gold:'#ff8800'
+    };
+
+    const PORTS = [
+        {n:'BARRANQUILLA',lat:10.96,lng:-74.78,a:0.8},{n:'CALLAO',lat:-12.05,lng:-77.12,a:0.9},
+        {n:'SANTOS',lat:-23.95,lng:-46.30,a:0.85},{n:'ANTOFAGASTA',lat:-23.65,lng:-70.40,a:0.95},
+        {n:'QINHUANGDAO',lat:39.93,lng:119.62,a:0.7},{n:'SHANGHAI',lat:31.23,lng:121.47,a:0.6},
+        {n:'ROTTERDAM',lat:51.90,lng:4.50,a:0.75},{n:'HOUSTON',lat:29.76,lng:-95.36,a:0.65},
+        {n:'RICHARDS BAY',lat:-28.78,lng:32.06,a:0.8},{n:'NEWCASTLE',lat:-32.93,lng:151.78,a:0.85},
+        {n:'GLADSTONE',lat:-23.85,lng:151.27,a:0.7},{n:'DAMPIER',lat:-20.66,lng:116.71,a:0.9},
+        {n:'BUSAN',lat:35.10,lng:129.03,a:0.75},{n:'DURBAN',lat:-29.88,lng:31.05,a:0.65},
+        {n:'MURMANSK',lat:68.97,lng:33.08,a:0.4},{n:'MANZANILLO',lat:19.05,lng:-104.32,a:0.55},
+    ];
+
+    const MINES = [
+        {n:'CERREJÓN',lat:11.08,lng:-72.67,c:'coal',p:0.9},
+        {n:'LAS BAMBAS',lat:-14.06,lng:-72.32,c:'copper',p:0.85},
+        {n:'BURITICÁ',lat:6.67,lng:-75.90,c:'gold',p:0.7},
+        {n:'ESCONDIDA',lat:-24.27,lng:-69.07,c:'copper',p:0.95},
+        {n:'CARAJÁS',lat:-6.07,lng:-50.17,c:'iron',p:0.9},
+        {n:'PILBARA',lat:-22.30,lng:118.17,c:'iron',p:0.95},
+        {n:'HUNTER VALLEY',lat:-32.55,lng:151.17,c:'coal',p:0.8},
+        {n:'KOLWEZI',lat:-10.72,lng:25.47,c:'cobalt',p:0.85},
+        {n:'GRASBERG',lat:-4.05,lng:137.12,c:'copper',p:0.9},
+        {n:'NORILSK',lat:69.35,lng:88.20,c:'nickel',p:0.75},
+        {n:'ANTAMINA',lat:-9.55,lng:-77.05,c:'copper',p:0.85},
+        {n:'EL TENIENTE',lat:-34.09,lng:-70.35,c:'copper',p:0.8},
+    ];
+
+    const ROUTES = [
+        {sLat:10.96,sLng:-74.78,eLat:39.93,eLng:119.62,c:'coal'},
+        {sLat:-12.05,sLng:-77.12,eLat:31.23,eLng:121.47,c:'copper'},
+        {sLat:-23.65,sLng:-70.40,eLat:31.23,eLng:121.47,c:'copper'},
+        {sLat:-23.95,sLng:-46.30,eLat:39.93,eLng:119.62,c:'iron'},
+        {sLat:-20.66,sLng:116.71,eLat:39.93,eLng:119.62,c:'iron'},
+        {sLat:-32.93,sLng:151.78,eLat:35.10,eLng:129.03,c:'coal'},
+        {sLat:-28.78,sLng:32.06,eLat:51.90,eLng:4.50,c:'coal'},
+        {sLat:-23.65,sLng:-70.40,eLat:29.76,eLng:-95.36,c:'copper'},
+        {sLat:-10.72,sLng:25.47,eLat:31.23,eLng:121.47,c:'cobalt'},
+        {sLat:69.35,sLng:88.20,eLat:51.90,eLng:4.50,c:'nickel'},
+        {sLat:-4.05,sLng:137.12,eLat:31.23,eLng:121.47,c:'copper'},
+        {sLat:-6.07,sLng:-50.17,eLat:51.90,eLng:4.50,c:'iron'},
+    ];
+
+    const CHOKE = [
+        {n:'SUEZ',lat:30.46,lng:32.34,r:0.7},{n:'PANAMA',lat:9.08,lng:-79.68,r:0.5},
+        {n:'MALACCA',lat:2.50,lng:101.40,r:0.4},{n:'HORMUZ',lat:26.57,lng:56.25,r:0.8},
+        {n:'BOSPHORUS',lat:41.12,lng:29.05,r:0.3},{n:'GOOD HOPE',lat:-34.36,lng:18.47,r:0.2},
+    ];
+
+    const ALERTS = [
+        '▲ CERREJÓN: Thermal +15% — mining activity surge detected',
+        '▲ MV FORTUNE STAR: Callao → Shanghai — 52Kt copper concentrate',
+        '⚠ PANAMA CANAL: Queue 18d — drought persists',
+        '▲ ESCONDIDA: Union vote Mar 12 — production risk HIGH',
+        '⚠ HORMUZ: Naval exercise — 3 tankers rerouted Good Hope',
+        '▲ PILBARA: Cyclone — Port Hedland suspended 48h',
+        '▲ LME COPPER: $9,450/t (+2.3%) — China PMI beat',
+        '▲ SENTINEL-2: Las Bambas overfly T-47min — thermal queued',
+        '⚠ NORILSK: Rail disruption — Ni shipments +5d delay',
+        '▲ RED SEA: Missile launch — 12 bulkers diverted',
+        '▲ NASA FIRMS: 3 thermal anomalies Hunter Valley',
+        '▲ BDI +4.2% — dry bulk demand accelerating',
+    ];
+
+    // Build points
+    var pts = [
+        ...PORTS.map(p => ({lat:p.lat,lng:p.lng,color:'#00d4ff',size:0.25+p.a*0.25,alt:0.005,t:'port'})),
+        ...MINES.map(m => ({lat:m.lat,lng:m.lng,color:COLORS[m.c]||'#ff8800',size:0.3+m.p*0.35,alt:0.008,t:'mine'})),
+        ...CHOKE.map(c => ({lat:c.lat,lng:c.lng,color:c.r>0.6?'#ff4444':'#ffcc00',size:0.2+c.r*0.25,alt:0.003,t:'choke'})),
+    ];
+
+    var rings = [
+        ...PORTS.map(p => ({lat:p.lat,lng:p.lng,maxR:1.5+p.a*1.5,speed:1+p.a})),
+        ...CHOKE.filter(c=>c.r>0.5).map(c=>({lat:c.lat,lng:c.lng,maxR:2+c.r*2,speed:2})),
+    ];
+
+    var arcs = ROUTES.map(r => ({
+        startLat:r.sLat,startLng:r.sLng,endLat:r.eLat,endLng:r.eLng,
+        color:[COLORS[r.c]||'#ff8800','rgba(0,0,0,0.1)'],commodity:r.c
+    }));
+
+    var labels = [
+        ...PORTS.map(p => ({lat:p.lat,lng:p.lng,text:p.n,size:0.5,color:'#00a0cc'})),
+        ...MINES.map(m => ({lat:m.lat,lng:m.lng,text:'◆ '+m.n,size:0.5,color:COLORS[m.c]||'#ff8800'})),
+        ...CHOKE.map(c => ({lat:c.lat,lng:c.lng,text:'⚠ '+c.n,size:0.45,color:'#ffcc00'})),
+    ];
+
+    // Init globe
+    var el = document.getElementById('globeViz');
+    var world = Globe()
+        .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-night.jpg')
+        .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
+        .backgroundImageUrl('https://unpkg.com/three-globe/example/img/night-sky.png')
+        .showAtmosphere(true)
+        .atmosphereColor('rgba(0,100,255,0.2)')
+        .atmosphereAltitude(0.16)
+        .pointsData(pts).pointLat('lat').pointLng('lng').pointColor('color')
+        .pointAltitude('alt').pointRadius('size').pointsMerge(true)
+        .arcsData(arcs).arcStartLat('startLat').arcStartLng('startLng')
+        .arcEndLat('endLat').arcEndLng('endLng').arcColor('color')
+        .arcDashLength(0.4).arcDashGap(0.2).arcDashAnimateTime(3000).arcStroke(0.4)
+        .ringsData(rings).ringLat('lat').ringLng('lng')
+        .ringMaxRadius('maxR').ringPropagationSpeed('speed').ringRepeatPeriod(2000)
+        .ringColor(function(){return function(t){return 'rgba(0,200,255,'+Math.max(0,1-t)+')'}})
+        .labelsData(labels).labelLat('lat').labelLng('lng').labelText('text')
+        .labelSize('size').labelDotRadius(0.15).labelColor('color').labelResolution(2).labelAltitude(0.012)
+        (el);
+
+    world.pointOfView({lat:0,lng:-45,altitude:2.8},1500);
+    world.controls().autoRotate = true;
+    world.controls().autoRotateSpeed = 0.3;
+    world.controls().enableDamping = true;
+
+    // Expose for React
+    window.meteoroGlobe = world;
+    window.meteoroArcs = arcs;
+    window.meteoroColors = COLORS;
+
+    // Fly to commodity
+    window.flyToCommodity = function(commodity) {
+        var locs = {
+            COAL:{lat:5,lng:-60,altitude:2.0}, COPPER:{lat:-20,lng:-70,altitude:1.8},
+            IRON:{lat:-15,lng:-45,altitude:2.0}, GOLD:{lat:5,lng:-75,altitude:1.5},
+            OIL:{lat:25,lng:50,altitude:2.2}, NATURAL_GAS:{lat:55,lng:60,altitude:2.5},
+            NICKEL:{lat:60,lng:80,altitude:2.5}, COBALT:{lat:-5,lng:25,altitude:2.0},
+            GENERAL:{lat:10,lng:0,altitude:3.0}, SHIPPING:{lat:20,lng:60,altitude:3.0},
+            COFFEE:{lat:0,lng:-55,altitude:2.0}, WHEAT:{lat:45,lng:30,altitude:2.5},
+            LITHIUM:{lat:-25,lng:-68,altitude:1.8},
         };
+        var loc = locs[commodity] || locs.GENERAL;
+        world.pointOfView(loc, 2000);
+        world.controls().autoRotate = false;
+    };
 
-        // Conviction Gauge SVG Component
-        function ConvictionGauge({ conviction = 87 }) {
-            const radius = 40;
-            const circumference = 2 * Math.PI * radius;
-            const strokeDashoffset = circumference - (conviction / 100) * circumference;
+    // Highlight commodity routes
+    window.highlightRoutes = function(commodity) {
+        var c = commodity.toLowerCase();
+        var highlighted = ROUTES.map(function(r) {
+            var match = (r.c === c);
+            return {
+                startLat:r.sLat,startLng:r.sLng,endLat:r.eLat,endLng:r.eLng,
+                color: match
+                    ? [COLORS[r.c]||'#ff8800', COLORS[r.c]||'#ff8800']
+                    : ['rgba(60,60,80,0.08)','rgba(0,0,0,0.02)'],
+                commodity: r.c
+            };
+        });
+        world.arcsData(highlighted).arcStroke(function(d){return d.color[0].startsWith('rgba(60')?0.15:1.2});
+    };
 
-            return (
-                <svg className="gauge-svg" viewBox="0 0 100 100">
-                    <circle
-                        cx="50"
-                        cy="50"
-                        r={radius}
-                        fill="none"
-                        stroke="rgba(255, 255, 255, 0.06)"
-                        strokeWidth="6"
-                    />
-                    <circle
-                        cx="50"
-                        cy="50"
-                        r={radius}
-                        fill="none"
-                        stroke="#06D6A0"
-                        strokeWidth="6"
-                        strokeDasharray={circumference}
-                        strokeDashoffset={strokeDashoffset}
-                        strokeLinecap="round"
-                        style={{
-                            transform: 'rotate(-90deg)',
-                            transformOrigin: '50px 50px',
-                            transition: 'stroke-dashoffset 0.6s ease',
-                        }}
-                    />
-                    <text
-                        x="50"
-                        y="54"
-                        textAnchor="middle"
-                        fill="#e5e5e5"
-                        fontSize="20"
-                        fontWeight="700"
-                        fontFamily="'Inter', sans-serif"
-                    >
-                        {conviction}%
-                    </text>
-                </svg>
-            );
+    window.resetRoutes = function() {
+        world.arcsData(arcs).arcStroke(0.4);
+        world.controls().autoRotate = true;
+    };
+
+    // HUD updates
+    function animC(id,target,dur) {
+        var el=document.getElementById(id),start=parseInt(el.textContent)||0;
+        var inc=(target-start)/(dur/50),cur=start;
+        var t=setInterval(function(){
+            cur+=inc;
+            if((inc>0&&cur>=target)||(inc<0&&cur<=target)){cur=target;clearInterval(t)}
+            el.textContent=Math.round(cur).toLocaleString();
+        },50);
+    }
+    setTimeout(function(){animC('s-ports',PORTS.length,1200)},600);
+    setTimeout(function(){animC('s-vessels',2847,1800)},900);
+    setTimeout(function(){animC('s-src',14200,2200)},1200);
+
+    setInterval(function(){
+        var ve=document.getElementById('s-vessels'),se=document.getElementById('s-src');
+        var v=parseInt(ve.textContent.replace(/,/g,''))||2847;
+        var s=parseInt(se.textContent.replace(/,/g,''))||14200;
+        ve.textContent=(v+Math.floor(Math.random()*5-1)).toLocaleString();
+        se.textContent=(s+Math.floor(Math.random()*8)).toLocaleString();
+    },5000);
+
+    // UTC clock
+    setInterval(function(){
+        document.getElementById('c-utc').textContent=new Date().toISOString().substr(11,8);
+    },1000);
+
+    // Coords
+    setInterval(function(){
+        var p=world.pointOfView();
+        document.getElementById('c-lat').textContent=p.lat.toFixed(3);
+        document.getElementById('c-lng').textContent=p.lng.toFixed(3);
+        document.getElementById('c-alt').textContent=p.altitude.toFixed(2);
+    },500);
+
+    // Alert ticker
+    var ai=0;
+    function rotA(){
+        var el=document.getElementById('alert-text');
+        el.style.opacity='0';
+        setTimeout(function(){el.textContent=ALERTS[ai%ALERTS.length];el.style.opacity='1';ai++;},500);
+    }
+    setTimeout(rotA,2500);
+    setInterval(rotA,6000);
+
+    // Mode switching
+    document.querySelectorAll('.mode-btn').forEach(function(btn){
+        btn.addEventListener('click',function(){
+            document.querySelectorAll('.mode-btn').forEach(function(b){b.classList.remove('active')});
+            btn.classList.add('active');
+            var m=btn.dataset.mode;
+            document.body.className=m==='default'?'':m;
+        });
+    });
+
+    // Layer toggles
+    document.querySelectorAll('.lyr-row').forEach(function(row){
+        row.addEventListener('click',function(){
+            row.classList.toggle('on');
+            // Simplified: just toggle visibility
+        });
+    });
+
+    // Resize
+    window.addEventListener('resize',function(){world.width(window.innerWidth);world.height(window.innerHeight)});
+})();
+</script>
+
+<!-- ═══ REACT APP ═══ -->
+<script type="text/babel">
+const {useState,useEffect,useRef} = React;
+
+const getApiBase = () => {
+    if (window.location.hostname==='localhost'||window.location.hostname==='127.0.0.1') return 'http://localhost:8000';
+    return window.location.origin;
+};
+
+function detectCommodity(q) {
+    const l=q.toLowerCase();
+    const kw={coal:'COAL',carbon:'COAL','carbón':'COAL',cerrejon:'COAL','cerrejón':'COAL',
+        copper:'COPPER',cobre:'COPPER',iron:'IRON',hierro:'IRON',gold:'GOLD',oro:'GOLD',
+        oil:'OIL',petroleo:'OIL',crudo:'OIL',brent:'OIL',wti:'OIL',
+        gas:'NATURAL_GAS',nickel:'NICKEL',niquel:'NICKEL',cobalt:'COBALT',cobalto:'COBALT',
+        lithium:'LITHIUM',litio:'LITHIUM',coffee:'COFFEE',cafe:'COFFEE',
+        wheat:'WHEAT',trigo:'WHEAT',baltic:'SHIPPING',soy:'GENERAL',corn:'GENERAL'};
+    for(const[k,v]of Object.entries(kw)){if(l.includes(k))return v}
+    return 'GENERAL';
+}
+
+function Gauge({conviction=85}){
+    const r=34,circ=2*Math.PI*r,off=circ-(conviction/100)*circ;
+    return(
+        <svg className="gauge-svg" viewBox="0 0 80 80">
+            <circle cx="40" cy="40" r={r} fill="none" stroke="rgba(0,180,255,0.08)" strokeWidth="5"/>
+            <circle cx="40" cy="40" r={r} fill="none" stroke="#06D6A0" strokeWidth="5"
+                strokeDasharray={circ} strokeDashoffset={off} strokeLinecap="round"
+                style={{transform:'rotate(-90deg)',transformOrigin:'40px 40px',transition:'stroke-dashoffset 0.6s ease'}}/>
+            <text x="40" y="44" textAnchor="middle" fill="#e0e8f0" fontSize="16" fontWeight="700"
+                fontFamily="'Orbitron',sans-serif">{conviction}%</text>
+        </svg>
+    );
+}
+
+function App(){
+    const[input,setInput]=useState('');
+    const[analyzing,setAnalyzing]=useState(false);
+    const[results,setResults]=useState(null);
+    const[steps,setSteps]=useState([]);
+    const[phase,setPhase]=useState('idle');
+    const stepsRef=useRef(null);
+    const panelRef=useRef(null);
+
+    const streams=[
+        'Escaneando imágenes satelitales térmicas de producción...',
+        'Analizando tráfico portuario y congestión en terminales...',
+        'Cruzando patrones de rutas marítimas AIS en tiempo real...',
+        'Procesando flujos de carga en corredores logísticos...',
+        'Evaluando riesgo geopolítico en regiones productoras...',
+        'Monitoreando inventarios y stockpiles principales...',
+        'Correlacionando índices de flete con demanda spot...',
+        'Rastreando movimientos de divisas emergentes...',
+        'Analizando curva forward y estructura de precios...',
+        'Procesando sentimiento en mercados de derivados...',
+        'Evaluando impacto climático en zonas de extracción...',
+        'Verificando datos de aduanas y volúmenes exportación...',
+        'Cruzando inteligencia OSINT regional...',
+        'Analizando consumo energético industrial...',
+        'Evaluando posiciones especulativas en commodities...',
+        'Procesando alertas de disrupciones supply chain...',
+        'Monitoreando flujos de capital institucional...',
+        'Analizando correlaciones macro entre materias primas...',
+        'Evaluando impacto regulatorio y aranceles...',
+        'Sintetizando inteligencia de demanda asiática...',
+    ];
+
+    useEffect(()=>{
+        if(stepsRef.current) stepsRef.current.scrollTop=stepsRef.current.scrollHeight;
+    },[steps]);
+
+    const chips=[
+        'Cerrejón coal strike — trade impact?',
+        'Peru copper supply disruption',
+        'Baltic Dry shift analysis',
+    ];
+
+    const handleSearch=async(query=input)=>{
+        if(!query.trim())return;
+        setInput(query); setAnalyzing(true); setResults(null); setPhase('scanning'); setSteps([]);
+
+        const commodity=detectCommodity(query);
+        if(window.flyToCommodity) window.flyToCommodity(commodity);
+        if(window.highlightRoutes) window.highlightRoutes(commodity);
+
+        const shuffled=[...streams].sort(()=>Math.random()-0.5);
+        let count=0,apiDone=false;
+        const iv=setInterval(()=>{
+            if(apiDone){clearInterval(iv);return}
+            const idx=count%shuffled.length;
+            const txt=count>=shuffled.length?shuffled[idx].replace('...', ' — verificando...'):shuffled[idx];
+            setSteps(p=>[...p,txt]);
+            count++;
+        },1200);
+
+        try{
+            const res=await fetch(`${getApiBase()}/api/analyze`,{
+                method:'POST',headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({command:query,language:'es'})
+            });
+            apiDone=true; clearInterval(iv);
+            if(res.ok){
+                const data=await res.json();
+                setSteps(p=>[...p,'Convergiendo señales — construyendo consenso...']);
+                setPhase('finalizing');
+                await new Promise(r=>setTimeout(r,600));
+                setSteps(p=>[...p,'Generando análisis autónomo...']);
+                await new Promise(r=>setTimeout(r,800));
+                setPhase('done'); setResults(data);
+            } else throw new Error('API error');
+        }catch(e){
+            apiDone=true; clearInterval(iv);
+            setSteps(p=>[...p,'Convergiendo señales...','Generando análisis autónomo...']);
+            await new Promise(r=>setTimeout(r,800));
+            setPhase('done');
+            setResults({signal:{direction:'LONG',ticker:commodity==='GENERAL'?'COMMODITY':commodity,conviction:87,entryPrice:'—',stopLoss:'—',takeProfit:'—'},
+                summary:{whatHappened:'Agentic system analysis completed with available intelligence streams.',whyItMatters:'Run again with active API keys for full multi-model analysis.'}});
         }
+        setAnalyzing(false);
+        if(window.resetRoutes) setTimeout(window.resetRoutes,3000);
+    };
 
-        // Main App Component
-        function MeteoroxApp() {
-            const [searchInput, setSearchInput] = useState('');
-            const [isAnalyzing, setIsAnalyzing] = useState(false);
-            const [analysisResults, setAnalysisResults] = useState(null);
-            const [currentStep, setCurrentStep] = useState(0);
-            const resultsRef = useRef(null);
+    const handleReset=()=>{
+        setResults(null);setInput('');setPhase('idle');setSteps([]);
+        if(window.resetRoutes) window.resetRoutes();
+        if(window.meteoroGlobe) window.meteoroGlobe.pointOfView({lat:0,lng:-45,altitude:2.8},1500);
+    };
 
-            // Phase 1: Initial routing (shown once, fast)
-            const initSteps = [
-                'Clasificando consulta y activando sistema agéntico...',
-            ];
+    const showPrompt=!analyzing&&!results;
 
-            // Phase 2: Intelligence streams loop (cycles while waiting for API)
-            const intelligenceStreams = [
-                'Escaneando imágenes satelitales térmicas de producción...',
-                'Analizando tráfico portuario y congestión en terminales...',
-                'Cruzando patrones de rutas marítimas AIS en tiempo real...',
-                'Procesando flujos de carga en corredores logísticos clave...',
-                'Evaluando riesgo geopolítico en regiones productoras...',
-                'Monitoreando inventarios y stockpiles en destinos principales...',
-                'Correlacionando índices de flete con demanda spot...',
-                'Rastreando movimientos de divisas en mercados emergentes...',
-                'Analizando curva forward y estructura de precios futuros...',
-                'Procesando señales de sentimiento en mercados de derivados...',
-                'Evaluando impacto climático en zonas de extracción...',
-                'Verificando datos de aduanas y volúmenes de exportación...',
-                'Cruzando inteligencia de fuentes abiertas (OSINT) regionales...',
-                'Analizando patrones de consumo energético industrial...',
-                'Evaluando posiciones especulativas en mercados de commodities...',
-                'Procesando alertas de disrupciones en cadena de suministro...',
-                'Monitoreando flujos de capital institucional en el sector...',
-                'Analizando correlaciones macro entre materias primas...',
-                'Evaluando impacto de políticas regulatorias y aranceles...',
-                'Sintetizando inteligencia de demanda asiática...',
-            ];
+    return(
+        <>
+            {showPrompt&&(
+                <div className="center-prompt">
+                    <div className="prompt-logo"><span className="prompt-logo-dot"></span>METEORO</div>
+                    <div className="prompt-tagline">Autonomous Commodity Intelligence</div>
+                    <div className="prompt-question">¿Qué está pasando en los mercados?</div>
+                </div>
+            )}
 
-            // Phase 3: Final synthesis (shown at end)
-            const finalSteps = [
-                'Convergiendo señales — construyendo consenso...',
-                'Generando análisis autónomo...',
-            ];
-
-            // Combine into dynamic steps array with looping intelligence
-            const [activeSteps, setActiveSteps] = useState([initSteps[0]]);
-            const [streamIndex, setStreamIndex] = useState(0);
-            const [phase, setPhase] = useState('init'); // init, scanning, finalizing, done
-
-            const mockAnalysisResult = {
-                signal: {
-                    direction: 'LONG',
-                    ticker: 'COAL',
-                    conviction: 87,
-                    entryPrice: '165.40',
-                    stopLoss: '158.20',
-                    takeProfit: '180.50',
-                },
-                evidence: [
-                    {
-                        capability: 'Physical Intelligence',
-                        finding: 'Satellite thermal imaging reveals 23% reduction in coal stockpiles at Newcastle port over 72 hours.',
-                        confidence: 94,
-                        source: 'Maxar Satellite Imagery',
-                        latency: '42ms',
-                    },
-                    {
-                        capability: 'Asymmetric Intelligence',
-                        finding: 'Maritime AIS data shows 18 bulk carriers diverted from Colombo routes, suggesting supply constraint.',
-                        confidence: 91,
-                        source: 'AIS Network Feed',
-                        latency: '38ms',
-                    },
-                    {
-                        capability: 'Geopolitical Intelligence',
-                        finding: 'Cerrejón coal strike escalation in Colombia reduces global supply by estimated 8-12% over Q2.',
-                        confidence: 89,
-                        source: 'News Aggregation + Industry Reports',
-                        latency: '156ms',
-                    },
-                    {
-                        capability: 'Quantitative Intelligence',
-                        finding: 'Thermal coal forward curve inversion suggests market pricing in supply tightness; entry at 165.40 offers 9.2% risk-reward.',
-                        confidence: 88,
-                        source: 'Futures Markets + Order Book',
-                        latency: '24ms',
-                    },
-                ],
-                causalChain: [
-                    'Cerrejón coal mine strike in Colombia',
-                    'Global coal supply reduces by 8-12% over Q2',
-                    'Newcastle port stockpiles deplete 23% in 72 hours',
-                    'Maritime AIS shows routing changes and diversion',
-                    'Thermal coal forward curve inverts, pricing in scarcity',
-                    'LONG signal with 87% conviction emerges',
-                ],
-                summary: {
-                    whatHappened: 'A coordinated supply shock across coal production and logistics: the Cerrejón strike in Colombia combined with port-level depletion and vessel rerouting creates a multi-vector supply constraint.',
-                    whyItMatters: 'Thermal coal is a leading inflation driver in emerging markets. This supply tightness will ripple through power generation costs, pushing central bank policy tighter. Our agentic system detected the signal 6-8 hours before mainstream market consensus formed.',
-                },
-            };
-
-            // Auto-scroll progress steps to bottom when new items added
-            const progressRef = useRef(null);
-            useEffect(() => {
-                if (progressRef.current) {
-                    progressRef.current.scrollTop = progressRef.current.scrollHeight;
-                }
-            }, [activeSteps]);
-
-            const quickPrompts = [
-                'Cerrejón coal strike — trade impact?',
-                'Peru copper supply disruption',
-                'Baltic Dry shift analysis',
-            ];
-
-            const handleSearch = async (query = searchInput) => {
-                if (!query.trim()) return;
-
-                setSearchInput(query);
-                setIsAnalyzing(true);
-                setCurrentStep(0);
-                setAnalysisResults(null);
-                setPhase('init');
-                setStreamIndex(0);
-
-                // Shuffle intelligence streams for variety each time
-                const shuffled = [...intelligenceStreams].sort(() => Math.random() - 0.5);
-                setActiveSteps([initSteps[0]]);
-
-                let stepCount = 0;
-                let apiDone = false;
-                let apiResult = null;
-
-                // Animation loop — adds new intelligence streams every 1.2s
-                const stepInterval = setInterval(() => {
-                    if (apiDone) {
-                        clearInterval(stepInterval);
-                        return;
-                    }
-                    stepCount++;
-                    if (stepCount <= shuffled.length) {
-                        setActiveSteps(prev => [...prev, shuffled[stepCount - 1]]);
-                        setCurrentStep(stepCount);
-                        setPhase('scanning');
-                    } else {
-                        // Loop back through with different wording
-                        const loopIdx = (stepCount - shuffled.length - 1) % shuffled.length;
-                        const loopStep = shuffled[loopIdx].replace('...', ' — verificando...');
-                        setActiveSteps(prev => [...prev, loopStep]);
-                        setCurrentStep(stepCount);
-                    }
-                }, 1200);
-
-                try {
-                    const apiBase = getApiBase();
-                    const response = await fetch(`${apiBase}/api/analyze`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ command: query, language: 'en' }),
-                    });
-
-                    apiDone = true;
-                    clearInterval(stepInterval);
-
-                    if (response.ok) {
-                        const data = await response.json();
-                        // Add final synthesis steps
-                        setPhase('finalizing');
-                        setActiveSteps(prev => [...prev, finalSteps[0]]);
-                        setCurrentStep(prev => prev + 1);
-
-                        await new Promise(r => setTimeout(r, 600));
-                        setActiveSteps(prev => [...prev, finalSteps[1]]);
-                        setCurrentStep(prev => prev + 1);
-
-                        await new Promise(r => setTimeout(r, 800));
-                        setPhase('done');
-                        setAnalysisResults(data);
-                    } else {
-                        throw new Error('API error');
-                    }
-                } catch (error) {
-                    apiDone = true;
-                    clearInterval(stepInterval);
-                    setPhase('finalizing');
-                    setActiveSteps(prev => [...prev, finalSteps[0], finalSteps[1]]);
-                    setCurrentStep(prev => prev + 2);
-                    await new Promise(r => setTimeout(r, 800));
-                    setPhase('done');
-                    setAnalysisResults(mockAnalysisResult);
-                }
-
-                setIsAnalyzing(false);
-
-                setTimeout(() => {
-                    if (resultsRef.current) {
-                        resultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }
-                }, 300);
-            };
-
-            const handleChipClick = (prompt) => {
-                handleSearch(prompt);
-            };
-
-            const handleKeyPress = (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSearch();
-                }
-            };
-
-            const handleReset = () => {
-                setAnalysisResults(null);
-                setSearchInput('');
-                setCurrentStep(0);
-                setIsAnalyzing(false);
-            };
-
-            return (
-                <>
-                    <div className="main-content">
-                        <div className="logo">
-                            <span className="logo-dot"></span>METEORO
-                        </div>
-
-                        <div className="tagline">Autonomous Commodity Intelligence</div>
-
-                        {!isAnalyzing && !analysisResults && (
-                            <div className="main-question">¿Qué está pasando en los mercados?</div>
-                        )}
-
-                        <div className="search-container">
-                            <div className="search-input-wrapper">
-                                <input
-                                    type="text"
-                                    className="search-input"
-                                    placeholder="Describe your query..."
-                                    value={searchInput}
-                                    onChange={(e) => setSearchInput(e.target.value)}
-                                    onKeyPress={handleKeyPress}
-                                />
-                                <button
-                                    className="search-button"
-                                    onClick={() => handleSearch()}
-                                    title="Send query"
-                                >
-                                    ↑
-                                </button>
+            {(analyzing||results)&&(
+                <div className="analysis-panel glass" ref={panelRef}>
+                    {analyzing&&(
+                        <>
+                            <div className="a-header">
+                                <div className="a-dot"></div>
+                                <span className="a-label">Analizando...</span>
                             </div>
-                        </div>
+                            <div className="a-steps" ref={stepsRef}>
+                                {steps.map((s,i)=>{
+                                    const last=i===steps.length-1;
+                                    return(
+                                        <div key={i} className={`a-step ${last?'now':'done'}`}
+                                            style={{opacity:last?1:Math.max(0.25,1-(steps.length-1-i)*0.06)}}>
+                                            <div className={`a-icon ${last?'spin':'chk'}`}>{last?'':'✓'}</div>
+                                            <div>{s}</div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            {phase==='scanning'&&<div className="a-counter">{steps.length} fuentes procesadas</div>}
+                        </>
+                    )}
 
-                        {!analysisResults && !isAnalyzing && (
-                            <div className="chips-container">
-                                {quickPrompts.map((prompt, idx) => (
-                                    <div
-                                        key={idx}
-                                        className="chip"
-                                        onClick={() => handleChipClick(prompt)}
-                                    >
-                                        {prompt}
+                    {results&&(
+                        <>
+                            <div className="sig-card">
+                                <div>
+                                    <div className={`sig-dir ${(results.signal?.direction||results.direction||'LONG').toLowerCase()}`}>
+                                        ● {results.signal?.direction||results.direction||'LONG'}
                                     </div>
-                                ))}
+                                    <div className="sig-ticker">{results.signal?.ticker||results.commodity||'COMMODITY'}</div>
+                                </div>
+                                <div className="gauge-wrap">
+                                    <Gauge conviction={results.signal?.conviction||results.conviction||85}/>
+                                    <div className="gauge-lbl">Conviction</div>
+                                </div>
+                                <div className="sig-metrics">
+                                    <div><span className="m-label">Entry</span><div className="m-value">{results.signal?.entryPrice||results.entry_price||'—'}</div></div>
+                                    <div><span className="m-label">Stop</span><div className="m-value">{results.signal?.stopLoss||results.stop_loss_pct||'—'}</div></div>
+                                    <div><span className="m-label">Target</span><div className="m-value">{results.signal?.takeProfit||results.take_profit_pct||'—'}</div></div>
+                                </div>
                             </div>
-                        )}
 
-                        {(isAnalyzing || analysisResults) && (
-                            <div className="results-area fade-in" ref={resultsRef}>
-                                {isAnalyzing && (
-                                    <>
-                                        <div className="analyzing-header">
-                                            <div className="analyzing-dot"></div>
-                                            <span>Analizando...</span>
-                                        </div>
-
-                                        <div className="progress-steps" ref={progressRef}>
-                                            {activeSteps.map((step, idx) => {
-                                                const isLast = idx === activeSteps.length - 1;
-                                                const isCompleted = idx < activeSteps.length - 1;
-                                                return (
-                                                    <div
-                                                        key={idx}
-                                                        className={`progress-step ${isCompleted ? 'completed' : 'active'} fade-in`}
-                                                        style={{ opacity: isCompleted ? Math.max(0.3, 1 - (activeSteps.length - 1 - idx) * 0.08) : 1 }}
-                                                    >
-                                                        <div className={`step-icon ${isCompleted ? 'completed' : 'active'}`}>
-                                                            {isCompleted ? '✓' : ''}
-                                                        </div>
-                                                        <div>{step}</div>
-                                                    </div>
-                                                );
-                                            })}
-                                            {phase === 'scanning' && (
-                                                <div className="stream-counter">
-                                                    {activeSteps.length - 1} fuentes procesadas
-                                                </div>
-                                            )}
-                                        </div>
-                                    </>
-                                )}
-
-                                {analysisResults && (
-                                    <>
-                                        <div className="signal-card">
-                                            <div>
-                                                <div className="signal-header">
-                                                    <div className={`signal-direction ${(analysisResults.signal?.direction || analysisResults.direction || 'LONG').toLowerCase()}`}>
-                                                        ● {analysisResults.signal?.direction || analysisResults.direction || 'LONG'}
-                                                    </div>
-                                                    <div className="signal-ticker">
-                                                        {analysisResults.signal?.ticker || analysisResults.commodity || 'COAL'}
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="conviction-gauge">
-                                                <ConvictionGauge conviction={analysisResults.signal?.conviction || analysisResults.conviction || 85} />
-                                                <div className="gauge-label">Conviction</div>
-                                            </div>
-
-                                            <div className="signal-metrics">
-                                                <div className="metric-row">
-                                                    <span className="metric-label">Entry</span>
-                                                    <span className="metric-value">
-                                                        {analysisResults.signal?.entryPrice || analysisResults.entry_price || '—'}
-                                                    </span>
-                                                </div>
-                                                <div className="metric-row">
-                                                    <span className="metric-label">Stop Loss</span>
-                                                    <span className="metric-value">
-                                                        {analysisResults.signal?.stopLoss || analysisResults.stop_loss_pct || '—'}
-                                                    </span>
-                                                </div>
-                                                <div className="metric-row">
-                                                    <span className="metric-label">Take Profit</span>
-                                                    <span className="metric-value">
-                                                        {analysisResults.signal?.takeProfit || analysisResults.take_profit_pct || '—'}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="analysis-narrative">
-                                            <div className="narrative-body">
-                                                {(() => {
-                                                    const reasoning = analysisResults.signal?.reasoning || analysisResults.reasoning || analysisResults.why_it_matters || '';
-                                                    const whatHappened = analysisResults.summary?.whatHappened || analysisResults.summary?.what_happened || analysisResults.what_happened || '';
-                                                    const whyMatters = analysisResults.summary?.whyItMatters || analysisResults.summary?.why_it_matters || analysisResults.why_it_matters || '';
-
-                                                    // Build narrative paragraphs from available data
-                                                    const paragraphs = [];
-
-                                                    if (whatHappened && whatHappened !== 'Analysis complete.') {
-                                                        paragraphs.push(whatHappened);
-                                                    }
-
-                                                    if (reasoning) {
-                                                        paragraphs.push(reasoning);
-                                                    }
-
-                                                    if (whyMatters && whyMatters !== 'See evidence above for details.' && whyMatters !== reasoning) {
-                                                        paragraphs.push(whyMatters);
-                                                    }
-
-                                                    // If no structured content, synthesize from evidence_cards
-                                                    if (paragraphs.length === 0) {
-                                                        const cards = analysisResults.evidence || analysisResults.evidence_cards || [];
-                                                        const validFindings = cards
-                                                            .filter(c => (c.finding || c.summary || c.analysis || c.reasoning) && !(c.finding || c.summary || c.analysis || c.reasoning || '').includes('LLM providers unavailable'))
-                                                            .map(c => c.finding || c.summary || c.analysis || c.reasoning);
-
-                                                        if (validFindings.length > 0) {
-                                                            paragraphs.push(...validFindings);
-                                                        } else {
-                                                            // Fallback: aggregate signal summary
-                                                            const cards2 = analysisResults.evidence || analysisResults.evidence_cards || [];
-                                                            const bullish = cards2.filter(c => (c.signal || '').toUpperCase() === 'LONG' || (c.signal || '').toUpperCase() === 'BUY').length;
-                                                            const bearish = cards2.filter(c => (c.signal || '').toUpperCase() === 'SHORT' || (c.signal || '').toUpperCase() === 'SELL').length;
-                                                            const neutral = cards2.length - bullish - bearish;
-                                                            const dir = (analysisResults.signal?.action || analysisResults.signal?.direction || analysisResults.direction || 'HOLD').toUpperCase();
-                                                            const conv = analysisResults.signal?.conviction || analysisResults.conviction || 0;
-                                                            const commodity = analysisResults.signal?.ticker || analysisResults.commodity || 'the commodity';
-
-                                                            paragraphs.push(
-                                                                `Our autonomous analysis of ${commodity} processed ${cards2.length} intelligence streams across satellite imagery, maritime tracking, supply chain data, macro indicators, and geopolitical signals.`
-                                                            );
-                                                            paragraphs.push(
-                                                                `The consensus signal is ${dir} with ${conv}% conviction. Out of ${cards2.length} independent analyses, ${bullish} returned bullish, ${bearish} bearish, and ${neutral} neutral readings${neutral === cards2.length ? ' — indicating that deeper data sources are being refreshed. Run this analysis again in a few minutes for full results.' : '.'}`
-                                                            );
-                                                        }
-                                                    }
-
-                                                    return paragraphs.map((p, i) => <p key={i}>{p}</p>);
-                                                })()}
-                                            </div>
-
-                                            <div className="analysis-meta">
-                                                <div className="meta-item">
-                                                    {(analysisResults.evidence || analysisResults.evidence_cards || []).length} <span>intelligence streams</span>
-                                                </div>
-                                                {analysisResults.pipeline_latency_ms && (
-                                                    <div className="meta-item">
-                                                        {(analysisResults.pipeline_latency_ms / 1000).toFixed(1)}s <span>latency</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        <div style={{ textAlign: 'center' }}>
-                                            <button
-                                                className="reset-button"
-                                                onClick={handleReset}
-                                            >
-                                                New Analysis
-                                            </button>
-                                        </div>
-                                    </>
-                                )}
+                            <div className="narrative">
+                                {(()=>{
+                                    const r2=results.signal?.reasoning||results.reasoning||'';
+                                    const wh=results.summary?.whatHappened||results.summary?.what_happened||results.what_happened||'';
+                                    const wm=results.summary?.whyItMatters||results.summary?.why_it_matters||results.why_it_matters||'';
+                                    const ps=[];
+                                    if(wh&&wh!=='Analysis complete.')ps.push(wh);
+                                    if(r2)ps.push(r2);
+                                    if(wm&&wm!=='See evidence above for details.'&&wm!==r2)ps.push(wm);
+                                    if(ps.length===0){
+                                        const cards=results.evidence||results.evidence_cards||[];
+                                        const valid=cards.filter(c=>(c.finding||c.summary||c.analysis||c.reasoning)&&!(c.finding||c.summary||'').includes('unavailable'))
+                                            .map(c=>c.finding||c.summary||c.analysis||c.reasoning);
+                                        if(valid.length>0)ps.push(...valid);
+                                        else{
+                                            const b=cards.filter(c=>(c.signal||'').toUpperCase()==='LONG').length;
+                                            const s2=cards.filter(c=>(c.signal||'').toUpperCase()==='SHORT').length;
+                                            const n=cards.length-b-s2;
+                                            const dir=(results.signal?.direction||results.direction||'HOLD').toUpperCase();
+                                            const conv=results.signal?.conviction||results.conviction||0;
+                                            const tk=results.signal?.ticker||results.commodity||'commodity';
+                                            ps.push(`Agentic system analyzed ${tk}: ${cards.length} intelligence streams, ${b} bullish, ${s2} bearish, ${n} neutral. Consensus: ${dir} at ${conv}% conviction.`);
+                                        }
+                                    }
+                                    return ps.map((p,i)=><p key={i}>{p}</p>);
+                                })()}
                             </div>
-                        )}
-                    </div>
 
-                    <div className="footer">
-                        METEORO · v8.3
-                    </div>
-                </>
-            );
-        }
+                            <div className="a-meta">
+                                <div className="a-meta-item">{(results.evidence||results.evidence_cards||[]).length} <span>intelligence streams</span></div>
+                                {results.pipeline_latency_ms&&<div className="a-meta-item">{(results.pipeline_latency_ms/1000).toFixed(1)}s <span>latency</span></div>}
+                            </div>
 
-        ReactDOM.createRoot(document.getElementById('root')).render(<MeteoroxApp />);
-    </script>
+                            <div style={{textAlign:'center'}}>
+                                <button className="reset-btn" onClick={handleReset}>New Analysis</button>
+                            </div>
+                        </>
+                    )}
+                </div>
+            )}
+
+            {showPrompt&&(
+                <div className="chips-bar">
+                    {chips.map((c,i)=><div key={i} className="chip" onClick={()=>handleSearch(c)}>{c}</div>)}
+                </div>
+            )}
+
+            <div className="search-bar">
+                <div className="search-wrap">
+                    <input className="search-in" placeholder="Describe your query..." value={input}
+                        onChange={e=>setInput(e.target.value)}
+                        onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();handleSearch()}}}/>
+                    <button className="search-btn" onClick={()=>handleSearch()}>↑</button>
+                </div>
+            </div>
+        </>
+    );
+}
+
+ReactDOM.createRoot(document.getElementById('react-root')).render(<App/>);
+</script>
 </body>
 </html>
