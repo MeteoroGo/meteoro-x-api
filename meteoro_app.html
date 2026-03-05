@@ -863,17 +863,17 @@
                                         <div className="signal-card">
                                             <div>
                                                 <div className="signal-header">
-                                                    <div className={`signal-direction ${analysisResults.signal.direction.toLowerCase()}`}>
-                                                        ● {analysisResults.signal.direction}
+                                                    <div className={`signal-direction ${(analysisResults.signal?.direction || analysisResults.direction || 'LONG').toLowerCase()}`}>
+                                                        ● {analysisResults.signal?.direction || analysisResults.direction || 'LONG'}
                                                     </div>
                                                     <div className="signal-ticker">
-                                                        {analysisResults.signal.ticker}
+                                                        {analysisResults.signal?.ticker || analysisResults.commodity || 'COAL'}
                                                     </div>
                                                 </div>
                                             </div>
 
                                             <div className="conviction-gauge">
-                                                <ConvictionGauge conviction={analysisResults.signal.conviction} />
+                                                <ConvictionGauge conviction={analysisResults.signal?.conviction || analysisResults.conviction || 85} />
                                                 <div className="gauge-label">Conviction</div>
                                             </div>
 
@@ -881,39 +881,39 @@
                                                 <div className="metric-row">
                                                     <span className="metric-label">Entry</span>
                                                     <span className="metric-value">
-                                                        {analysisResults.signal.entryPrice}
+                                                        {analysisResults.signal?.entryPrice || analysisResults.entry_price || '—'}
                                                     </span>
                                                 </div>
                                                 <div className="metric-row">
                                                     <span className="metric-label">Stop Loss</span>
                                                     <span className="metric-value">
-                                                        {analysisResults.signal.stopLoss}
+                                                        {analysisResults.signal?.stopLoss || analysisResults.stop_loss_pct || '—'}
                                                     </span>
                                                 </div>
                                                 <div className="metric-row">
                                                     <span className="metric-label">Take Profit</span>
                                                     <span className="metric-value">
-                                                        {analysisResults.signal.takeProfit}
+                                                        {analysisResults.signal?.takeProfit || analysisResults.take_profit_pct || '—'}
                                                     </span>
                                                 </div>
                                             </div>
                                         </div>
 
                                         <div className="evidence-list">
-                                            {analysisResults.evidence.map((item, idx) => (
+                                            {(analysisResults.evidence || analysisResults.evidence_cards || []).map((item, idx) => (
                                                 <div key={idx} className="evidence-item">
                                                     <div className="evidence-header-row">
                                                         <div className="evidence-capability">
-                                                            {item.capability}
+                                                            {item.capability || item.agent || 'Intelligence'}
                                                         </div>
                                                         <div className="confidence-badge">
-                                                            {item.confidence}% confidence
+                                                            {item.confidence || item.confidence_score || '—'}% confidence
                                                         </div>
                                                     </div>
-                                                    <div className="evidence-content">{item.finding}</div>
+                                                    <div className="evidence-content">{item.finding || item.summary || item.analysis || ''}</div>
                                                     <div className="evidence-meta">
-                                                        <span className="source-tag">{item.source}</span>
-                                                        <span>{item.latency}</span>
+                                                        <span className="source-tag">{item.source || item.sources?.[0] || 'Analysis'}</span>
+                                                        <span>{item.latency || item.latency_ms ? `${item.latency_ms}ms` : ''}</span>
                                                     </div>
                                                 </div>
                                             ))}
@@ -921,10 +921,10 @@
 
                                         <div className="causal-chain">
                                             <div className="chain-title">Causal Chain</div>
-                                            {analysisResults.causalChain.map((event, idx) => (
+                                            {(analysisResults.causalChain || analysisResults.causal_chain || analysisResults.reasoning_chain || []).map((event, idx) => (
                                                 <div key={idx} className="chain-event">
                                                     <div className="chain-number">{idx + 1}.</div>
-                                                    <div className="chain-text">{event}</div>
+                                                    <div className="chain-text">{typeof event === 'string' ? event : (event.text || event.description || event.step || JSON.stringify(event))}</div>
                                                 </div>
                                             ))}
                                         </div>
@@ -932,14 +932,14 @@
                                         <div className="summary-section">
                                             <div className="summary-title">What Happened</div>
                                             <div className="summary-content">
-                                                {analysisResults.summary.whatHappened}
+                                                {analysisResults.summary?.whatHappened || analysisResults.summary?.what_happened || analysisResults.what_happened || analysisResults.executive_summary || 'Analysis complete.'}
                                             </div>
                                         </div>
 
                                         <div className="summary-section">
                                             <div className="summary-title">Why It Matters</div>
                                             <div className="summary-content">
-                                                {analysisResults.summary.whyItMatters}
+                                                {analysisResults.summary?.whyItMatters || analysisResults.summary?.why_it_matters || analysisResults.why_it_matters || analysisResults.market_impact || 'See evidence above for details.'}
                                             </div>
                                         </div>
 
@@ -958,7 +958,7 @@
                     </div>
 
                     <div className="footer">
-                        METEORO · v8.0
+                        METEORO · v8.1.1
                     </div>
                 </>
             );
