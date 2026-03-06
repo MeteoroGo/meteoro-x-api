@@ -125,6 +125,17 @@ COMMODITY_KEYWORDS = {
     "cobalt": "COBALT", "cobalto": "COBALT",
     "platinum": "PLATINUM", "platino": "PLATINUM",
     "palladium": "PALLADIUM", "paladio": "PALLADIUM",
+    "uranium": "URANIUM", "uranio": "URANIUM",
+    "tin": "TIN", "estaño": "TIN",
+    "zinc": "ZINC",
+    "aluminum": "ALUMINUM", "aluminio": "ALUMINUM", "aluminium": "ALUMINUM",
+    # Agriculture — LatAm extended
+    "cacao": "COCOA", "cocoa": "COCOA", "chocolate": "COCOA",
+    "cotton": "COTTON", "algodon": "COTTON", "algodón": "COTTON",
+    "rice": "RICE", "arroz": "RICE",
+    "beef": "CATTLE", "cattle": "CATTLE", "ganado": "CATTLE", "carne": "CATTLE",
+    "palm oil": "PALM_OIL", "aceite de palma": "PALM_OIL", "palma": "PALM_OIL",
+    "rubber": "RUBBER", "caucho": "RUBBER",
     # Shipping
     "baltic": "SHIPPING", "freight": "SHIPPING", "flete": "SHIPPING",
     # General market queries

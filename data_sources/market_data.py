@@ -42,6 +42,18 @@ COMMODITY_TICKERS = {
     "CORN": {"ticker": "ZC=F", "name": "Corn", "unit": "cents/bu"},
     "SOY": {"ticker": "ZS=F", "name": "Soybeans", "unit": "cents/bu"},
     "SUGAR": {"ticker": "SB=F", "name": "Sugar #11", "unit": "cents/lb"},
+    # Extended Base Metals
+    "URANIUM": {"ticker": "URA", "name": "Uranium ETF", "unit": "USD"},
+    "TIN": {"ticker": "^DJGSP", "name": "Tin proxy", "unit": "USD"},
+    "ZINC": {"ticker": "ZINC", "name": "Zinc proxy", "unit": "USD"},
+    "ALUMINUM": {"ticker": "AA", "name": "Aluminum (Alcoa proxy)", "unit": "USD"},
+    # Extended Agriculture
+    "COCOA": {"ticker": "CC=F", "name": "Cocoa", "unit": "USD/ton"},
+    "COTTON": {"ticker": "CT=F", "name": "Cotton #2", "unit": "cents/lb"},
+    "RICE": {"ticker": "ZR=F", "name": "Rough Rice", "unit": "cents/cwt"},
+    "CATTLE": {"ticker": "LE=F", "name": "Live Cattle", "unit": "cents/lb"},
+    "PALM_OIL": {"ticker": "MRO.L", "name": "Palm Oil proxy", "unit": "USD"},
+    "RUBBER": {"ticker": "RUBB.L", "name": "Rubber proxy", "unit": "USD"},
     # Shipping
     "SHIPPING": {"ticker": "BDRY", "name": "Baltic Dry Index ETF", "unit": "USD"},
     # General (use S&P GSCI as proxy)
