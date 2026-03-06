@@ -293,6 +293,30 @@
         .a-icon.chk { background: rgba(6,214,160,0.08); color: #06D6A0; }
         @keyframes aspin { to { transform: rotate(360deg); } }
 
+        .a-timer {
+            margin-left: auto;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 12px; color: #00b4ff;
+            letter-spacing: 1px;
+            opacity: 0.7;
+        }
+        .phase-bar {
+            display: flex; gap: 4px; margin-bottom: 12px;
+            justify-content: center;
+        }
+        .phase-dot {
+            width: 24px; height: 3px; border-radius: 2px;
+            background: rgba(0,180,255,0.08);
+            transition: all 0.5s ease;
+        }
+        .phase-dot.active {
+            background: #00b4ff;
+            box-shadow: 0 0 8px rgba(0,180,255,0.4);
+        }
+        .phase-dot.done {
+            background: #06D6A0;
+        }
+        .a-step.retry { color: #F59E0B !important; }
         .a-counter {
             font-family: 'Share Tech Mono', monospace;
             font-size: 10px; color: #06D6A0; margin-top: 8px; letter-spacing: 0.5px;
@@ -476,7 +500,7 @@
     <div class="leg-item"><span class="leg-bar" style="background:#ffc800;opacity:0.5"></span>RAIL</div>
 </div>
 
-<div id="ver">METEORO · v9.2</div>
+<div id="ver">METEORO · v9.3</div>
 
 <!-- React Root -->
 <div id="react-root"></div>
@@ -824,35 +848,62 @@ function App(){
     const[steps,setSteps]=useState([]);
     const[phase,setPhase]=useState('idle');
     const[error,setError]=useState(null);
+    const[elapsed,setElapsed]=useState(0);
     const stepsRef=useRef(null);
     const panelRef=useRef(null);
+    const elapsedRef=useRef(null);
 
-    const streams=[
-        'Escaneando imágenes satelitales térmicas de producción...',
-        'Analizando tráfico portuario y congestión en terminales...',
-        'Cruzando patrones de rutas marítimas AIS en tiempo real...',
-        'Procesando flujos de carga en corredores logísticos...',
-        'Evaluando riesgo geopolítico en regiones productoras...',
-        'Monitoreando inventarios y stockpiles principales...',
-        'Correlacionando índices de flete con demanda spot...',
-        'Rastreando movimientos de divisas emergentes...',
-        'Analizando curva forward y estructura de precios...',
-        'Procesando sentimiento en mercados de derivados...',
-        'Evaluando impacto climático en zonas de extracción...',
-        'Verificando datos de aduanas y volúmenes exportación...',
-        'Cruzando inteligencia OSINT regional...',
-        'Analizando consumo energético industrial...',
-        'Evaluando posiciones especulativas en commodities...',
-        'Procesando alertas de disrupciones supply chain...',
-        'Monitoreando flujos de capital institucional...',
-        'Analizando correlaciones macro entre materias primas...',
-        'Evaluando impacto regulatorio y aranceles...',
-        'Sintetizando inteligencia de demanda asiática...',
-    ];
+    // Structured loading phases — more realistic than random steps
+    const phaseStreams={
+        init:[
+            'Conectando con sistema de inteligencia autónoma...',
+            'Inicializando sensores y fuentes de datos...',
+        ],
+        data:[
+            'Obteniendo precios spot en tiempo real (yfinance)...',
+            'Descargando indicadores macro: VIX, DXY, yields...',
+            'Consultando tasas FX para mercados emergentes...',
+            'Buscando eventos geopolíticos relevantes (GDELT)...',
+        ],
+        alpha:[
+            'Desplegando reconocimiento satelital térmico...',
+            'Rastreando tráfico marítimo y AIS en puertos clave...',
+            'Mapeando disrupciones en cadenas de suministro...',
+        ],
+        bravo:[
+            'Analizando inteligencia OSINT latinoamericana...',
+            'Evaluando demanda asiática y señales de China...',
+            'Procesando riesgo geopolítico en zonas productoras...',
+        ],
+        charlie:[
+            'Detectando régimen macro: inflación, tasas, liquidez...',
+            'Calculando señales cuantitativas: RSI, SMA, volatilidad...',
+            'Evaluando sentimiento y flujos institucionales...',
+        ],
+        risk:[
+            'Risk Guardian analizando todos los resultados...',
+            'Verificando VaR, correlación y límites de drawdown...',
+        ],
+        consensus:[
+            'Convergiendo señales — construyendo consenso...',
+            'Generando análisis autónomo...',
+        ],
+    };
 
     useEffect(()=>{
         if(stepsRef.current) stepsRef.current.scrollTop=stepsRef.current.scrollHeight;
     },[steps]);
+
+    // Elapsed time counter
+    useEffect(()=>{
+        if(analyzing){
+            setElapsed(0);
+            elapsedRef.current=setInterval(()=>setElapsed(t=>t+1),1000);
+        } else {
+            if(elapsedRef.current) clearInterval(elapsedRef.current);
+        }
+        return ()=>{if(elapsedRef.current) clearInterval(elapsedRef.current)};
+    },[analyzing]);
 
     const chips=[
         'Analiza cobre Perú',
@@ -863,42 +914,80 @@ function App(){
         'Litio Chile',
     ];
 
+    // Core API call with retry logic
+    const callApi=async(query, attempt=1)=>{
+        const controller=new AbortController();
+        const timeout=setTimeout(()=>controller.abort(),90000); // 90s timeout
+        try{
+            const res=await fetch(`${getApiBase()}/api/analyze`,{
+                method:'POST',headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({command:query,language:'es'}),
+                signal:controller.signal,
+            });
+            clearTimeout(timeout);
+            if(res.ok) return await res.json();
+            // Server errors (502/503) may indicate wake-up needed
+            if((res.status===502||res.status===503)&&attempt<2){
+                return null; // Trigger retry
+            }
+            const errText=await res.text().catch(()=>'');
+            throw new Error(`API ${res.status}: ${errText.slice(0,100)}`);
+        }catch(e){
+            clearTimeout(timeout);
+            if(e.name==='AbortError'&&attempt<2) return null; // Timeout, retry
+            if(attempt<2&&(e.message.includes('Failed to fetch')||e.message.includes('NetworkError'))) return null;
+            throw e;
+        }
+    };
+
     const handleSearch=async(query=input)=>{
         if(!query.trim())return;
         setInput(query); setAnalyzing(true); setResults(null);
-        setPhase('scanning'); setSteps([]); setError(null);
+        setPhase('init'); setSteps([]); setError(null);
 
         const commodity=detectCommodity(query);
         if(window.flyToCommodity) window.flyToCommodity(commodity);
         if(window.highlightRoutes) window.highlightRoutes(commodity);
 
-        const shuffled=[...streams].sort(()=>Math.random()-0.5);
-        let count=0,apiDone=false;
+        // Progressive phase animation
+        const allPhases=['init','data','alpha','bravo','charlie','risk'];
+        let phaseIdx=0, stepIdx=0, apiDone=false;
         const iv=setInterval(()=>{
             if(apiDone){clearInterval(iv);return}
-            const idx=count%shuffled.length;
-            const txt=count>=shuffled.length?shuffled[idx].replace('...', ' — verificando...'):shuffled[idx];
-            setSteps(p=>[...p,txt]);
-            count++;
-        },1200);
+            const phaseName=allPhases[phaseIdx];
+            const phaseSteps=phaseStreams[phaseName]||[];
+            if(stepIdx<phaseSteps.length){
+                setSteps(p=>[...p,phaseSteps[stepIdx]]);
+                setPhase(phaseName);
+                stepIdx++;
+            } else {
+                phaseIdx++;
+                stepIdx=0;
+                if(phaseIdx>=allPhases.length) phaseIdx=0; // Loop
+            }
+        },1800);
 
         try{
-            const res=await fetch(`${getApiBase()}/api/analyze`,{
-                method:'POST',headers:{'Content-Type':'application/json'},
-                body:JSON.stringify({command:query,language:'es'})
-            });
+            // First attempt
+            let data=await callApi(query,1);
+
+            // Auto-retry if first attempt failed (server waking up)
+            if(!data){
+                setSteps(p=>[...p,'⟳ Servidor despertando — reintentando...']);
+                setPhase('init');
+                await new Promise(r=>setTimeout(r,3000));
+                data=await callApi(query,2);
+            }
+
             apiDone=true; clearInterval(iv);
-            if(res.ok){
-                const data=await res.json();
-                setSteps(p=>[...p,'Convergiendo señales — construyendo consenso...']);
-                setPhase('finalizing');
+
+            if(data){
+                setSteps(p=>[...p,...phaseStreams.consensus]);
+                setPhase('consensus');
                 await new Promise(r=>setTimeout(r,600));
-                setSteps(p=>[...p,'Generando análisis autónomo...']);
-                await new Promise(r=>setTimeout(r,800));
                 setPhase('done'); setResults(data);
             } else {
-                const errText = await res.text().catch(()=>'Unknown error');
-                throw new Error(`API ${res.status}: ${errText.slice(0,100)}`);
+                throw new Error('No se pudo obtener respuesta del servidor');
             }
         }catch(e){
             apiDone=true; clearInterval(iv);
@@ -941,12 +1030,23 @@ function App(){
                             <div className="a-header">
                                 <div className="a-dot"></div>
                                 <span className="a-label">Analizando...</span>
+                                <span className="a-timer">{elapsed}s</span>
+                            </div>
+                            {/* Phase indicator */}
+                            <div className="phase-bar">
+                                {['init','data','alpha','bravo','charlie','risk','consensus'].map((p,i)=>(
+                                    <div key={p} className={`phase-dot ${
+                                        phase===p?'active':
+                                        ['init','data','alpha','bravo','charlie','risk','consensus'].indexOf(phase)>i?'done':'pending'
+                                    }`}/>
+                                ))}
                             </div>
                             <div className="a-steps" ref={stepsRef}>
                                 {steps.map((s,i)=>{
                                     const last=i===steps.length-1;
+                                    const isRetry=s.includes('⟳');
                                     return(
-                                        <div key={i} className={`a-step ${last?'now':'done'}`}
+                                        <div key={i} className={`a-step ${last?'now':'done'} ${isRetry?'retry':''}`}
                                             style={{opacity:last?1:Math.max(0.25,1-(steps.length-1-i)*0.06)}}>
                                             <div className={`a-icon ${last?'spin':'chk'}`}>{last?'':'✓'}</div>
                                             <div>{s}</div>
@@ -954,7 +1054,7 @@ function App(){
                                     );
                                 })}
                             </div>
-                            {phase==='scanning'&&<div className="a-counter">{steps.length} fuentes procesadas</div>}
+                            <div className="a-counter">{steps.length} operaciones procesadas</div>
                         </>
                     )}
 

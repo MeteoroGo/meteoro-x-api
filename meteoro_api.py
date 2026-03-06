@@ -1,5 +1,5 @@
 """
-METEORO X v9.2 — API Server
+METEORO X v9.3 — API Server
 ==============================
 FastAPI server powering the Meteoro Autonomous Intelligence System.
 
@@ -10,6 +10,8 @@ Endpoints:
   GET  /api/macro         - Current macro snapshot
   GET  /api/signals       - Recent signals history
   GET  /api/swarm/config  - Swarm configuration info
+  GET  /api/diagnostics   - Provider status
+  GET  /api/ping          - Lightweight keep-alive endpoint
   WS   /ws/analyze        - Real-time streaming analysis
 """
 
@@ -65,7 +67,7 @@ except Exception:
 app = FastAPI(
     title="Meteoro X — Autonomous Intelligence",
     description="AI-Native Autonomous Commodity Intelligence | Agentic System",
-    version="9.2.0",
+    version="9.3.0",
 )
 
 app.add_middleware(
@@ -253,7 +255,7 @@ async def health():
     return {
         "status": "operational",
         "system": "Meteoro X Autonomous Intelligence",
-        "version": "9.2.0",
+        "version": "9.3.0",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "swarm_active": HAS_SWARM,
         "capabilities": {
@@ -451,6 +453,12 @@ async def get_latency_stats():
     return {"error": "Benchmark not available"}
 
 
+@app.get("/api/ping")
+async def ping():
+    """Lightweight keep-alive endpoint — used by background self-ping to prevent Render from sleeping."""
+    return {"pong": True, "ts": time.time()}
+
+
 @app.get("/api/diagnostics")
 async def diagnostics():
     """System diagnostics — shows provider status without exposing keys."""
@@ -489,7 +497,7 @@ async def diagnostics():
 
         return {
             "status": "ok",
-            "version": "9.2.4",
+            "version": "9.3.0",
             "providers": provider_status,
             "active_models": list(models),
             "active_providers": list(providers),
@@ -610,10 +618,45 @@ async def websocket_analyze(websocket: WebSocket):
 # STARTUP
 # ═══════════════════════════════════════════════════════════════
 
+async def _keep_alive_loop():
+    """
+    Self-ping every 10 minutes to prevent Render free tier from sleeping.
+    Pings the PUBLIC URL so Render counts it as inbound traffic.
+    """
+    # Determine public URL
+    render_url = os.environ.get("RENDER_EXTERNAL_URL", "")
+    if not render_url:
+        # Fallback: try common domains
+        for domain in ["https://meteoro.io", "https://meteoro-x-api.onrender.com"]:
+            render_url = domain
+            break
+
+    if not render_url:
+        print("[KEEPALIVE] No public URL detected — disabled")
+        return
+
+    print(f"[KEEPALIVE] Active — pinging {render_url}/api/ping every 10 min")
+
+    try:
+        import httpx
+    except ImportError:
+        print("[KEEPALIVE] httpx not available — disabled")
+        return
+
+    while True:
+        await asyncio.sleep(600)  # 10 minutes
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                r = await client.get(f"{render_url}/api/ping")
+                print(f"[KEEPALIVE] Ping OK ({r.status_code})")
+        except Exception as e:
+            print(f"[KEEPALIVE] Ping failed: {str(e)[:60]}")
+
+
 @app.on_event("startup")
 async def startup():
     print("=" * 60)
-    print("  METEORO X v9.2 — Autonomous Intelligence API")
+    print("  METEORO X v9.3 — Autonomous Intelligence API")
     print("  Agentic System | Multi-Model Router | Real Data")
     print(f"  Swarm Available: {HAS_SWARM}")
     print(f"  Legacy Pipeline: {HAS_LEGACY}")
@@ -629,6 +672,8 @@ async def startup():
     print("=" * 60)
     # Pre-initialize swarm
     get_swarm()
+    # Start keep-alive background task
+    asyncio.create_task(_keep_alive_loop())
 
 
 if __name__ == "__main__":

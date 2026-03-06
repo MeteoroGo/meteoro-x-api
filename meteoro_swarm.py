@@ -316,33 +316,78 @@ class MeteorSwarm:
         # Detect how many providers are available for parallel execution
         try:
             from multi_model_router import _get_available_models
-            n_providers = len(_get_available_models())
+            available_models = _get_available_models()
+            n_providers = len(available_models)
         except Exception:
+            available_models = set()
             n_providers = 1
 
-        # With 1 provider (Gemini 15 RPM): sequential with 4s spacing
-        # With 2+ providers: could run in parallel batches (future optimization)
-        print(f"\n[SWARM] Running 9 agents (providers: {n_providers})...")
+        # Determine if we have multi-provider capability
+        # With 2+ providers (e.g., Anthropic + Gemini): run agent BATCHES in parallel
+        # With 1 provider (e.g., Gemini only at 15 RPM): sequential with spacing
+        multi_provider = n_providers >= 2
 
-        for i, config in enumerate(self.agent_configs[:9]):
-            # Space calls to avoid Gemini 429
-            if i > 0:
-                await asyncio.sleep(self.AGENT_SPACING_S)
+        if multi_provider:
+            # ── PARALLEL BATCH MODE ─────────────────────────────────
+            # Run 3 batches of 3 agents each (like Navy SEAL teams)
+            # Each batch runs concurrently; batches run sequentially with small gap
+            BATCH_GAP_S = 2.0  # gap between batches (enough to avoid burst limits)
+            batches = [
+                ("ALPHA", self.agent_configs[:3]),   # Physical: Satellite, Maritime, Supply Chain
+                ("BRAVO", self.agent_configs[3:6]),   # Regional: LatAm, China, Geopolitical
+                ("CHARLIE", self.agent_configs[6:9]), # Quant: Macro, Quant, Sentiment
+            ]
+            print(f"\n[SWARM] Running 9 agents in 3 parallel batches (providers: {n_providers})...")
 
-            try:
-                result = await self._run_llm_agent(config, commodity, data_str, context)
-                all_results.append(result)
-            except Exception as e:
-                print(f"  [Agent ERROR] {config['name']}: {e}")
-                all_results.append(SuperAgentResult(
-                    agent_id=config["id"], agent_name=config["name"],
-                    signal=Signal.NEUTRAL, confidence=0,
-                    reasoning=f"Error: {str(e)[:100]}",
-                    sources_analyzed=0,
-                ))
+            for batch_name, batch_configs in batches:
+                if all_results:  # Gap between batches (not before first)
+                    await asyncio.sleep(BATCH_GAP_S)
+
+                print(f"\n  [BATCH {batch_name}] Deploying {len(batch_configs)} agents in parallel...")
+                tasks = [
+                    self._run_llm_agent(config, commodity, data_str, context)
+                    for config in batch_configs
+                ]
+                batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+                for j, result in enumerate(batch_results):
+                    config = batch_configs[j]
+                    if isinstance(result, Exception):
+                        print(f"    [Agent ERROR] {config['name']}: {result}")
+                        all_results.append(SuperAgentResult(
+                            agent_id=config["id"], agent_name=config["name"],
+                            signal=Signal.NEUTRAL, confidence=0,
+                            reasoning=f"Error: {str(result)[:100]}",
+                            sources_analyzed=0,
+                        ))
+                    else:
+                        all_results.append(result)
+
+                print(f"  [BATCH {batch_name}] Complete — {len(batch_configs)} agents done")
+
+        else:
+            # ── SEQUENTIAL MODE (single provider, rate limited) ─────
+            print(f"\n[SWARM] Running 9 agents sequentially (providers: {n_providers}, spacing: {self.AGENT_SPACING_S}s)...")
+
+            for i, config in enumerate(self.agent_configs[:9]):
+                # Space calls to avoid Gemini 429
+                if i > 0:
+                    await asyncio.sleep(self.AGENT_SPACING_S)
+
+                try:
+                    result = await self._run_llm_agent(config, commodity, data_str, context)
+                    all_results.append(result)
+                except Exception as e:
+                    print(f"  [Agent ERROR] {config['name']}: {e}")
+                    all_results.append(SuperAgentResult(
+                        agent_id=config["id"], agent_name=config["name"],
+                        signal=Signal.NEUTRAL, confidence=0,
+                        reasoning=f"Error: {str(e)[:100]}",
+                        sources_analyzed=0,
+                    ))
 
         # ─── STEP 3: RISK GUARDIAN (with all previous results) ────
-        await asyncio.sleep(self.AGENT_SPACING_S)
+        await asyncio.sleep(2.0 if multi_provider else self.AGENT_SPACING_S)
         print("\n[DELTA] Risk Guardian analyzing...")
         prev_signals = "\n".join([
             f"  {r.agent_name}: {r.signal.value} ({r.confidence}%) — {r.reasoning[:80]}"
@@ -369,19 +414,40 @@ MARKET DATA:
         else:
             print(f"  [RISK GUARDIAN] ✓ No veto: {risk_result.reasoning[:60]}")
 
-        # ─── STEP 4: EXECUTION + COUNTERINTEL (sequential) ───────
-        print("\n[DELTA] Execution + Counterintelligence...")
-        for config in self.agent_configs[10:12]:  # Agents 11-12
-            await asyncio.sleep(self.AGENT_SPACING_S)
-            try:
-                r = await self._run_llm_agent(config, commodity, data_str, context)
-                all_results.append(r)
-            except Exception as e:
-                all_results.append(SuperAgentResult(
-                    agent_id=config["id"], agent_name=config["name"],
-                    signal=Signal.NEUTRAL, confidence=0,
-                    reasoning=str(e)[:100], sources_analyzed=0,
-                ))
+        # ─── STEP 4: EXECUTION + COUNTERINTEL ───────────────────
+        if multi_provider:
+            # Run both in parallel
+            await asyncio.sleep(2.0)
+            print("\n[DELTA] Execution + Counterintelligence (parallel)...")
+            exec_tasks = [
+                self._run_llm_agent(config, commodity, data_str, context)
+                for config in self.agent_configs[10:12]
+            ]
+            exec_results = await asyncio.gather(*exec_tasks, return_exceptions=True)
+            for j, result in enumerate(exec_results):
+                config = self.agent_configs[10 + j]
+                if isinstance(result, Exception):
+                    all_results.append(SuperAgentResult(
+                        agent_id=config["id"], agent_name=config["name"],
+                        signal=Signal.NEUTRAL, confidence=0,
+                        reasoning=str(result)[:100], sources_analyzed=0,
+                    ))
+                else:
+                    all_results.append(result)
+        else:
+            # Sequential with spacing
+            print("\n[DELTA] Execution + Counterintelligence...")
+            for config in self.agent_configs[10:12]:  # Agents 11-12
+                await asyncio.sleep(self.AGENT_SPACING_S)
+                try:
+                    r = await self._run_llm_agent(config, commodity, data_str, context)
+                    all_results.append(r)
+                except Exception as e:
+                    all_results.append(SuperAgentResult(
+                        agent_id=config["id"], agent_name=config["name"],
+                        signal=Signal.NEUTRAL, confidence=0,
+                        reasoning=str(e)[:100], sources_analyzed=0,
+                    ))
 
         # ─── STEP 5: CONSENSUS ───────────────────────────────────
         final_signal, conviction, reasoning = self._build_consensus(
