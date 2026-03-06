@@ -1265,6 +1265,35 @@ function App(){
                                 </div>
                             )}
 
+                            {/* Causal Chain — shows agent reasoning flow */}
+                            {results.causal_chain&&results.causal_chain.length>0&&(
+                                <div style={{margin:'12px 0 8px'}}>
+                                    <div style={{
+                                        fontFamily:'Share Tech Mono,monospace',fontSize:'9px',
+                                        color:'rgba(255,255,255,0.35)',letterSpacing:'2px',
+                                        marginBottom:'6px',textTransform:'uppercase'
+                                    }}>Cadena Causal ({results.causal_chain.length} fuentes)</div>
+                                    <div style={{
+                                        display:'flex',gap:'4px',flexWrap:'wrap',
+                                    }}>
+                                        {results.causal_chain.slice(0,5).map((c,i)=>{
+                                            const match=c.match(/\[(.+?)\]\s*(BUY|SELL|HOLD)\s*\((\d+)%\)/);
+                                            if(!match)return null;
+                                            const[,name,sig,conf]=match;
+                                            const color=sig==='BUY'?'#10B981':sig==='SELL'?'#EF4444':'#6B7280';
+                                            return(
+                                                <div key={i} style={{
+                                                    padding:'3px 7px',borderRadius:'4px',fontSize:'9px',
+                                                    fontFamily:'Share Tech Mono,monospace',
+                                                    background:`${color}15`,border:`1px solid ${color}30`,
+                                                    color:color,whiteSpace:'nowrap',
+                                                }}>{name} {sig} {conf}%</div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Risk Assessment */}
                             {results.risk_assessment?.veto_active&&(
                                 <div style={{
@@ -1273,14 +1302,14 @@ function App(){
                                     fontFamily:'Share Tech Mono,monospace',fontSize:'10px',color:'#EF4444',
                                     letterSpacing:'1px'
                                 }}>
-                                    ⚠ RISK GUARDIAN VETO ACTIVE
+                                    ⚠ RISK GUARDIAN VETO ACTIVO
                                 </div>
                             )}
 
                             {/* Meta */}
                             <div className="a-meta">
                                 <div className="a-meta-item">
-                                    {(results.evidence_cards||[]).length||results.swarm_results?.total_agents||0} <span>capabilities</span>
+                                    {(results.evidence_cards||[]).length||results.swarm_results?.total_agents||0} <span>capacidades</span>
                                 </div>
                                 {results.pipeline_latency_ms&&(
                                     <div className="a-meta-item">{(results.pipeline_latency_ms/1000).toFixed(1)}s <span>latencia</span></div>
@@ -1293,6 +1322,9 @@ function App(){
                                 )}
                                 {results.price_data?.rsi_14>0&&(
                                     <div className="a-meta-item">RSI {results.price_data.rsi_14} <span>técnico</span></div>
+                                )}
+                                {results.swarm_results&&(
+                                    <div className="a-meta-item">{results.swarm_results.agents_bullish}↑ {results.swarm_results.agents_bearish}↓ {results.swarm_results.agents_neutral}→ <span>agentes</span></div>
                                 )}
                             </div>
 
