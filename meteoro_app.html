@@ -416,6 +416,30 @@
         }
         .a-meta-item span { color: #607080; }
 
+        /* Speed comparison */
+        .speed-compare {
+            display: flex; align-items: center; justify-content: center;
+            gap: 12px; padding: 12px 0; margin: 8px 0;
+            border-top: 1px solid rgba(0,180,255,0.06);
+        }
+        .speed-ai, .speed-human { text-align: center; }
+        .speed-val {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 16px; font-weight: 700;
+            display: block;
+        }
+        .speed-ai .speed-val { color: #06D6A0; }
+        .speed-human .speed-val { color: #506070; }
+        .speed-lbl {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 8px; letter-spacing: 2px; color: #405060;
+            text-transform: uppercase;
+        }
+        .speed-vs {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 10px; color: #304050; letter-spacing: 1px;
+        }
+
         /* Reset */
         .reset-btn {
             padding: 8px 18px; background: transparent;
@@ -1182,8 +1206,23 @@ function App(){
                                 )}
                             </div>
 
+                            {/* Speed comparison — impressive for demos */}
+                            {results.pipeline_latency_ms&&(
+                                <div className="speed-compare">
+                                    <div className="speed-ai">
+                                        <span className="speed-val">{(results.pipeline_latency_ms/1000).toFixed(1)}s</span>
+                                        <span className="speed-lbl">Meteoro X</span>
+                                    </div>
+                                    <div className="speed-vs">vs</div>
+                                    <div className="speed-human">
+                                        <span className="speed-val">45+ min</span>
+                                        <span className="speed-lbl">Analista humano</span>
+                                    </div>
+                                </div>
+                            )}
+
                             <div style={{textAlign:'center'}}>
-                                <button className="reset-btn" onClick={handleReset}>New Analysis</button>
+                                <button className="reset-btn" onClick={handleReset}>Nuevo Análisis</button>
                             </div>
                         </>
                     )}
