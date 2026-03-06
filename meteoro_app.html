@@ -195,55 +195,26 @@
         }
 
         .glass {
-            background: rgba(2, 6, 18, 0.88);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border: 1px solid rgba(0,180,255,0.08);
-            border-radius: 12px;
+            background: rgba(2, 6, 18, 0.72);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(0,180,255,0.1);
+            border-radius: 10px;
             pointer-events: auto;
         }
 
-        /* Center prompt */
-        .center-prompt {
-            pointer-events: none;
-            text-align: center;
-            margin-bottom: auto;
-            margin-top: 22vh;
-            animation: fadein 1.5s ease 0.5s both;
-        }
-        @keyframes fadein { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-        .prompt-logo {
-            font-family: 'Orbitron', sans-serif;
-            font-weight: 900; font-size: 42px; color: #fff;
-            letter-spacing: 8px; margin-bottom: 6px;
-        }
-        .prompt-logo-dot {
-            display: inline-block; width: 8px; height: 8px;
-            background: #06D6A0; border-radius: 50%;
-            margin-right: 6px; vertical-align: middle;
-        }
-        .prompt-tagline {
-            font-family: 'Share Tech Mono', monospace;
-            font-size: 11px; color: #506070; letter-spacing: 4px;
-            text-transform: uppercase; margin-bottom: 36px;
-        }
-        .prompt-question {
-            font-family: 'Inter', sans-serif;
-            font-size: 26px; font-weight: 300; color: #c0d0e0;
-            letter-spacing: 0.5px; line-height: 1.4;
-        }
+        /* Center prompt — removed for clean globe view */
 
         /* Search bar */
         .search-bar {
-            width: 100%; max-width: 580px;
-            margin-bottom: 60px; padding: 0 20px;
+            width: 100%; max-width: 480px;
+            margin-bottom: 36px; padding: 0 20px;
             pointer-events: auto;
         }
         .search-wrap { position: relative; display: flex; align-items: center; }
         .search-in {
-            width: 100%; padding: 14px 48px 14px 20px;
-            background: rgba(2,6,18,0.9);
+            width: 100%; padding: 12px 44px 12px 18px;
+            background: rgba(2,6,18,0.75);
             border: 1px solid rgba(0,180,255,0.1);
             border-radius: 10px; color: #e0e8f0;
             font-family: 'Inter', sans-serif; font-size: 14px;
@@ -266,11 +237,11 @@
             pointer-events: auto; padding: 0 20px;
         }
         .chip {
-            padding: 7px 14px;
-            background: rgba(0,180,255,0.04);
-            border: 1px solid rgba(0,180,255,0.1);
-            border-radius: 20px; color: #607080;
-            font-size: 12px; cursor: pointer;
+            padding: 5px 12px;
+            background: rgba(0,180,255,0.03);
+            border: 1px solid rgba(0,180,255,0.08);
+            border-radius: 16px; color: #506070;
+            font-size: 11px; cursor: pointer;
             font-weight: 500; white-space: nowrap;
             transition: all 0.3s; font-family: 'Inter', sans-serif;
         }
@@ -279,13 +250,15 @@
             background: rgba(0,180,255,0.06);
         }
 
-        /* Analysis panel */
+        /* Analysis panel — compact right-side */
         .analysis-panel {
-            width: 100%; max-width: 580px;
-            max-height: 55vh; overflow-y: auto;
-            margin-bottom: 12px; padding: 24px;
+            position: fixed;
+            right: 20px; top: 80px;
+            width: 360px; max-height: 70vh;
+            overflow-y: auto; padding: 18px;
             pointer-events: auto;
             scrollbar-width: none;
+            margin: 0;
         }
         .analysis-panel::-webkit-scrollbar { display: none; }
 
@@ -380,10 +353,8 @@
             #hud-stats { bottom: 10px; left: 10px; }
             #hud-coords { display: none; }
             #hud-legend { display: none; }
-            .center-prompt { margin-top: 15vh; }
-            .prompt-logo { font-size: 28px; letter-spacing: 4px; }
-            .prompt-question { font-size: 20px; }
-            .search-bar { max-width: 100%; margin-bottom: 40px; }
+            .analysis-panel { position: relative; right: auto; top: auto; width: 100%; max-width: 100%; margin-bottom: 8px; }
+            .search-bar { max-width: 100%; margin-bottom: 30px; }
             .sig-card { flex-direction: column; gap: 16px; align-items: flex-start; }
         }
     </style>
@@ -424,6 +395,8 @@
     <div class="lyr-row on" data-layer="mines"><span class="lyr-dot" style="background:#ff8800"></span> MINES</div>
     <div class="lyr-row on" data-layer="routes"><span class="lyr-dot" style="background:#ff3366"></span> ROUTES</div>
     <div class="lyr-row on" data-layer="choke"><span class="lyr-dot" style="background:#ffcc00"></span> CHOKEPOINTS</div>
+    <div class="lyr-row on" data-layer="vessels"><span class="lyr-dot" style="background:#44ffbb"></span> VESSELS</div>
+    <div class="lyr-row on" data-layer="rail"><span class="lyr-dot" style="background:#ffc800"></span> RAILWAYS</div>
 </div>
 
 <!-- HUD: Stats -->
@@ -451,9 +424,10 @@
     <div class="leg-item"><span class="leg-bar" style="background:#ffd700"></span>GOLD</div>
     <div class="leg-item"><span class="leg-bar" style="background:#00ccff"></span>COBALT</div>
     <div class="leg-item"><span class="leg-bar" style="background:#cc66ff"></span>NICKEL</div>
+    <div class="leg-item"><span class="leg-bar" style="background:#ffc800;opacity:0.5"></span>RAIL</div>
 </div>
 
-<div id="ver">METEORO · v9.0</div>
+<div id="ver">METEORO · v9.1</div>
 
 <!-- React Root -->
 <div id="react-root"></div>
@@ -574,6 +548,57 @@
         .labelSize('size').labelDotRadius(0.15).labelColor('color').labelResolution(2).labelAltitude(0.012)
         (el);
 
+    // ═══ RAILWAYS: Mine → Port land connections ═══
+    var railways = [
+        {sLat:11.08,sLng:-72.67,eLat:10.96,eLng:-74.78,n:'Cerrejón→Barranquilla'},
+        {sLat:-24.27,sLng:-69.07,eLat:-23.65,eLng:-70.40,n:'Escondida→Antofagasta'},
+        {sLat:-22.30,sLng:118.17,eLat:-20.66,eLng:116.71,n:'Pilbara→Dampier'},
+        {sLat:-6.07,sLng:-50.17,eLat:-23.95,eLng:-46.30,n:'Carajás→Santos'},
+        {sLat:-32.55,sLng:151.17,eLat:-32.93,eLng:151.78,n:'HunterValley→Newcastle'},
+        {sLat:-14.06,sLng:-72.32,eLat:-12.05,eLng:-77.12,n:'LasBambas→Callao'},
+        {sLat:-9.55,sLng:-77.05,eLat:-12.05,eLng:-77.12,n:'Antamina→Callao'},
+        {sLat:-34.09,sLng:-70.35,eLat:-23.65,eLng:-70.40,n:'ElTeniente→Antofagasta'},
+        {sLat:-10.72,sLng:25.47,eLat:-29.88,eLng:31.05,n:'Kolwezi→Durban'},
+        {sLat:69.35,sLng:88.20,eLat:68.97,eLng:33.08,n:'Norilsk→Murmansk'},
+    ];
+    var railArcs = railways.map(function(r){
+        return {
+            startLat:r.sLat,startLng:r.sLng,endLat:r.eLat,endLng:r.eLng,
+            color:['rgba(255,200,0,0.35)','rgba(255,200,0,0.08)'],commodity:'rail'
+        };
+    });
+    arcs = arcs.concat(railArcs);
+    world.arcsData(arcs);
+
+    // ═══ ANIMATED VESSELS: Ships moving along trade routes ═══
+    var vessels = [];
+    ROUTES.forEach(function(r, ri) {
+        var count = 2 + Math.floor(Math.random() * 2);
+        for (var i = 0; i < count; i++) {
+            vessels.push({
+                rIdx: ri, progress: Math.random(),
+                speed: 0.0015 + Math.random() * 0.002,
+                lat: r.sLat, lng: r.sLng
+            });
+        }
+    });
+
+    function updateVessels() {
+        vessels.forEach(function(v) {
+            v.progress += v.speed;
+            if (v.progress > 1) v.progress = 0;
+            var r = ROUTES[v.rIdx];
+            v.lat = r.sLat + (r.eLat - r.sLat) * v.progress;
+            v.lng = r.sLng + (r.eLng - r.sLng) * v.progress;
+        });
+        var vesselPts = vessels.map(function(v) {
+            return {lat:v.lat,lng:v.lng,color:'#44ffbb',size:0.12,alt:0.015,t:'vessel'};
+        });
+        world.pointsData(pts.concat(vesselPts));
+    }
+    setInterval(updateVessels, 800);
+    updateVessels();
+
     world.pointOfView({lat:0,lng:-45,altitude:2.8},1500);
     world.controls().autoRotate = true;
     world.controls().autoRotateSpeed = 0.3;
@@ -613,11 +638,13 @@
                 commodity: r.c
             };
         });
-        world.arcsData(highlighted).arcStroke(function(d){return d.color[0].startsWith('rgba(60')?0.15:1.2});
+        // Keep railways visible but dim
+        var dimRails = railArcs.map(function(r){return{startLat:r.startLat,startLng:r.startLng,endLat:r.endLat,endLng:r.endLng,color:['rgba(255,200,0,0.15)','rgba(0,0,0,0.02)'],commodity:'rail'}});
+        world.arcsData(highlighted.concat(dimRails)).arcStroke(function(d){return d.commodity==='rail'?0.2:d.color[0].startsWith('rgba(60')?0.15:1.2});
     };
 
     window.resetRoutes = function() {
-        world.arcsData(arcs).arcStroke(0.4);
+        world.arcsData(arcs).arcStroke(function(d){return d.commodity==='rail'?0.2:0.4});
         world.controls().autoRotate = true;
     };
 
@@ -821,14 +848,6 @@ function App(){
 
     return(
         <>
-            {showPrompt&&(
-                <div className="center-prompt">
-                    <div className="prompt-logo"><span className="prompt-logo-dot"></span>METEORO</div>
-                    <div className="prompt-tagline">Autonomous Commodity Intelligence</div>
-                    <div className="prompt-question">¿Qué está pasando en los mercados?</div>
-                </div>
-            )}
-
             {(analyzing||results)&&(
                 <div className="analysis-panel glass" ref={panelRef}>
                     {analyzing&&(
@@ -922,7 +941,7 @@ function App(){
 
             <div className="search-bar">
                 <div className="search-wrap">
-                    <input className="search-in" placeholder="Describe your query..." value={input}
+                    <input className="search-in" placeholder="¿Qué está pasando en los mercados?" value={input}
                         onChange={e=>setInput(e.target.value)}
                         onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();handleSearch()}}}/>
                     <button className="search-btn" onClick={()=>handleSearch()}>↑</button>
