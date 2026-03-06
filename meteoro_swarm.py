@@ -347,7 +347,7 @@ class MeteorSwarm:
         session_id = str(uuid.uuid4().hex[:8])
 
         print(f"\n{'='*70}")
-        print(f"METEORO SWARM v7.2 — REAL DATA + RATE LIMITED — {session_id}")
+        print(f"METEORO SWARM v9.5 — AUTONOMOUS INTELLIGENCE — {session_id}")
         print(f"Commodity: {commodity}")
         print(f"{'='*70}\n")
 
@@ -436,7 +436,8 @@ class MeteorSwarm:
                 ("BRAVO", self.agent_configs[3:6]),   # Regional: LatAm, China, Geopolitical
                 ("CHARLIE", self.agent_configs[6:9]), # Quant: Macro, Quant, Sentiment
             ]
-            print(f"\n[SWARM] Running 9 agents in 3 parallel batches (providers: {n_providers})...")
+            n_agents = len(self.agent_configs[:9])
+            print(f"\n[SWARM] Deploying intelligence capabilities in 3 parallel batches (providers: {n_providers})...")
 
             for batch_name, batch_configs in batches:
                 if all_results:  # Gap between batches (not before first)
@@ -466,7 +467,7 @@ class MeteorSwarm:
 
         else:
             # ── SEQUENTIAL MODE (single provider, rate limited) ─────
-            print(f"\n[SWARM] Running 9 agents sequentially (providers: {n_providers}, spacing: {self.AGENT_SPACING_S}s)...")
+            print(f"\n[SWARM] Deploying intelligence capabilities sequentially (providers: {n_providers}, spacing: {self.AGENT_SPACING_S}s)...")
 
             for i, config in enumerate(self.agent_configs[:9]):
                 # Space calls to avoid Gemini 429
@@ -650,7 +651,7 @@ INSTRUCTIONS:
                 confidence=confidence,
                 reasoning=reasoning,
                 sources_analyzed=evidence.get("sources_analyzed", 3),
-                evidence_pack=evidence,
+                evidence_pack={**evidence, "model": llm_response.model_used, "provider": llm_response.provider},
                 latency_ms=latency,
                 timestamp=datetime.now(timezone.utc).isoformat(),
                 tools_called=[f"llm:{llm_response.model_used}"],
