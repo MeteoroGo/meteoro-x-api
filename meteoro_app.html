@@ -329,6 +329,15 @@
             margin-bottom: 16px; display: flex;
             justify-content: space-between; align-items: center;
             gap: 16px; background: rgba(0,10,30,0.4);
+            transition: border-color 0.5s, box-shadow 0.5s;
+        }
+        .sig-card:has(.sig-dir.long) {
+            border-color: rgba(16,185,129,0.15);
+            box-shadow: 0 0 20px rgba(16,185,129,0.05);
+        }
+        .sig-card:has(.sig-dir.short) {
+            border-color: rgba(239,68,68,0.15);
+            box-shadow: 0 0 20px rgba(239,68,68,0.05);
         }
         .sig-dir {
             font-size: 10px; text-transform: uppercase;
@@ -449,6 +458,8 @@
             font-weight: 500; transition: all 0.3s; margin-top: 12px;
         }
         .reset-btn:hover { border-color: rgba(0,180,255,0.3); color: #00b4ff; }
+        .share-btn { border-color: rgba(6,214,160,0.15); }
+        .share-btn:hover { border-color: rgba(6,214,160,0.4); color: #06D6A0; }
 
         /* ═══ RESPONSIVE ═══ */
         @media (max-width: 768px) {
@@ -1300,8 +1311,22 @@ function App(){
                                 </div>
                             )}
 
-                            <div style={{textAlign:'center'}}>
+                            <div style={{textAlign:'center',display:'flex',gap:'8px',justifyContent:'center'}}>
                                 <button className="reset-btn" onClick={handleReset}>Nuevo Análisis</button>
+                                <button className="reset-btn share-btn" onClick={()=>{
+                                    const dir=getDirection(results.signal?.direction||results.signal?.action);
+                                    const price=results.price_data?.price?`$${results.price_data.price.toLocaleString()}`:'-';
+                                    const txt=`METEORO X — ${results.commodity||'COMMODITY'}\n`
+                                        +`Señal: ${dir} | Convicción: ${results.signal?.conviction||0}%\n`
+                                        +`Precio: ${price}\n`
+                                        +(results.consensus?`\n${results.consensus}\n`:'')
+                                        +(results.why_it_matters?`\n${results.why_it_matters}\n`:'')
+                                        +`\nmeteoro.io`;
+                                    navigator.clipboard.writeText(txt).then(()=>{
+                                        const btn=document.querySelector('.share-btn');
+                                        if(btn){btn.textContent='Copiado ✓';setTimeout(()=>{btn.textContent='Compartir'},1500)}
+                                    }).catch(()=>{});
+                                }}>Compartir</button>
                             </div>
                         </>
                     )}
