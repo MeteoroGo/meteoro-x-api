@@ -328,16 +328,22 @@
             border-radius: 10px; padding: 20px;
             margin-bottom: 16px; display: flex;
             justify-content: space-between; align-items: center;
-            gap: 16px; background: rgba(0,10,30,0.4);
+            gap: 16px; background: rgba(0,10,30,0.5);
+            backdrop-filter: blur(12px);
             transition: border-color 0.5s, box-shadow 0.5s;
+            animation: card-in 0.6s ease-out;
+        }
+        @keyframes card-in {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         .sig-card:has(.sig-dir.long) {
-            border-color: rgba(16,185,129,0.15);
-            box-shadow: 0 0 20px rgba(16,185,129,0.05);
+            border-color: rgba(16,185,129,0.2);
+            box-shadow: 0 0 30px rgba(16,185,129,0.06), inset 0 0 30px rgba(16,185,129,0.02);
         }
         .sig-card:has(.sig-dir.short) {
-            border-color: rgba(239,68,68,0.15);
-            box-shadow: 0 0 20px rgba(239,68,68,0.05);
+            border-color: rgba(239,68,68,0.2);
+            box-shadow: 0 0 30px rgba(239,68,68,0.06), inset 0 0 30px rgba(239,68,68,0.02);
         }
         .sig-dir {
             font-size: 10px; text-transform: uppercase;
@@ -367,15 +373,22 @@
         .sig-split .neut { color: #506070; }
 
         /* Narrative */
-        .narrative { margin-bottom: 16px; }
+        .narrative { margin-bottom: 16px; animation: card-in 0.5s ease-out 0.2s both; }
         .narrative p { color: #90a0b0; font-size: 12px; line-height: 1.7; margin-bottom: 10px; }
         .narrative p:last-child { margin-bottom: 0; }
         .narrative .consensus {
             font-family: 'Share Tech Mono', monospace;
-            font-size: 11px; color: #607080;
-            padding: 8px 12px; margin-bottom: 10px;
-            border-left: 2px solid rgba(0,180,255,0.2);
-            background: rgba(0,10,30,0.3);
+            font-size: 11px; color: #8090a0;
+            padding: 10px 14px; margin-bottom: 10px;
+            border-left: 2px solid rgba(0,180,255,0.3);
+            background: rgba(0,10,30,0.4);
+            border-radius: 0 6px 6px 0;
+        }
+        .narrative .section-label {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 8px; color: rgba(255,255,255,0.25);
+            letter-spacing: 2px; text-transform: uppercase;
+            margin-bottom: 6px;
         }
 
         /* Key findings */
@@ -384,6 +397,15 @@
             padding: 8px 0;
             border-bottom: 1px solid rgba(0,180,255,0.04);
             font-size: 11px; line-height: 1.5;
+            animation: finding-in 0.4s ease-out both;
+        }
+        .finding-item:nth-child(1) { animation-delay: 0.1s; }
+        .finding-item:nth-child(2) { animation-delay: 0.2s; }
+        .finding-item:nth-child(3) { animation-delay: 0.3s; }
+        .finding-item:nth-child(4) { animation-delay: 0.4s; }
+        @keyframes finding-in {
+            from { opacity: 0; transform: translateX(-6px); }
+            to { opacity: 1; transform: translateX(0); }
         }
         .finding-item:last-child { border-bottom: none; }
         .finding-head {
@@ -1229,10 +1251,16 @@ function App(){
                                     <div className="consensus">{results.consensus}</div>
                                 )}
                                 {results.what_happened&&(
-                                    <p>{results.what_happened}</p>
+                                    <>
+                                        <div className="section-label">Inteligencia desplegada</div>
+                                        <p>{results.what_happened}</p>
+                                    </>
                                 )}
                                 {results.why_it_matters&&results.why_it_matters!==results.what_happened&&(
-                                    <p>{results.why_it_matters}</p>
+                                    <>
+                                        <div className="section-label">Por qué importa</div>
+                                        <p>{results.why_it_matters}</p>
+                                    </>
                                 )}
                                 {!results.what_happened&&!results.why_it_matters&&results.signal?.reasoning&&(
                                     <p>{results.signal.reasoning}</p>
@@ -1242,6 +1270,7 @@ function App(){
                             {/* Key Findings */}
                             {(results.top_findings||results.evidence_cards||[]).length>0&&(
                                 <div className="findings">
+                                    <div className="section-label" style={{marginBottom:'8px'}}>Hallazgos clave</div>
                                     {(results.top_findings||results.evidence_cards||[]).slice(0,4).map((f,i)=>{
                                         const sig=(f.signal||'HOLD').toUpperCase();
                                         const badgeClass=sig==='BUY'?'buy':sig==='SELL'?'sell':'hold';
