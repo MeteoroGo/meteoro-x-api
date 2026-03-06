@@ -298,6 +298,186 @@ def _build_narrative(result, commodity: str, language: str = "es") -> dict:
 
 
 # ═══════════════════════════════════════════════════════════════
+# INTELLIGENCE BRIEF — Structured by strategic dimensions
+# ═══════════════════════════════════════════════════════════════
+
+# Map agent names → strategic dimensions
+DIMENSION_MAP = {
+    "Satellite": "supply",
+    "Maritime": "supply",
+    "Supply Chain": "supply",
+    "LatAm": "demand",
+    "China Demand": "demand",
+    "Geopolitical": "geopolitical",
+    "Macro Regime": "macro",
+    "Quant": "technical",
+    "Sentiment": "sentiment",
+    "Risk Guardian": "risk",
+    "Execution": "execution",
+    "Counterintelligence": "validation",
+}
+
+DIMENSION_LABELS = {
+    "supply": {"es": "Oferta & Logística", "en": "Supply & Logistics"},
+    "demand": {"es": "Demanda Global", "en": "Global Demand"},
+    "macro": {"es": "Régimen Macro", "en": "Macro Regime"},
+    "technical": {"es": "Análisis Técnico", "en": "Technical Analysis"},
+    "geopolitical": {"es": "Riesgo Geopolítico", "en": "Geopolitical Risk"},
+    "sentiment": {"es": "Sentimiento & Flujos", "en": "Sentiment & Flows"},
+}
+
+
+def _get_agent_dimension(agent_name: str) -> str:
+    """Map agent name to strategic dimension."""
+    for key, dim in DIMENSION_MAP.items():
+        if key.lower() in agent_name.lower():
+            return dim
+    return "other"
+
+
+def _build_intelligence_brief(result, commodity: str, price_data: dict, language: str = "es") -> dict:
+    """
+    Build a structured intelligence brief grouped by strategic dimensions.
+    This is what makes Meteoro X useful — not just a signal, but a BRIEF.
+    """
+    lang = language.lower()[:2] if language else "es"
+    direction = _signal_to_direction(result.final_signal.value)
+
+    # ── Group agents by dimension ──────────────────────────────
+    dimensions = {}
+    execution_plan = {}
+    key_risk = ""
+
+    for r in result.all_results:
+        if r.error or r.confidence == 0:
+            continue
+
+        dim = _get_agent_dimension(r.agent_name)
+
+        if dim == "execution":
+            # Extract execution plan from Execution Engine
+            ep = r.evidence_pack.get("raw_llm", {})
+            if ep:
+                execution_plan = {
+                    "entry": ep.get("entry_price", 0),
+                    "stop_loss": ep.get("stop_loss", 0),
+                    "take_profit": ep.get("take_profit", 0),
+                    "position_size": ep.get("position_size_pct", 0),
+                    "reasoning": r.evidence_pack.get("key_finding", r.reasoning[:150]),
+                }
+            continue
+
+        if dim == "validation":
+            # Counterintelligence = key risk
+            key_risk = r.evidence_pack.get("key_finding", r.reasoning[:200])
+            continue
+
+        if dim == "risk":
+            # Risk Guardian info
+            continue
+
+        if dim not in dimensions:
+            dimensions[dim] = {
+                "label": DIMENSION_LABELS.get(dim, {}).get(lang, dim),
+                "signals": [],
+                "avg_confidence": 0,
+                "direction": "NEUTRAL",
+                "key_finding": "",
+            }
+
+        dimensions[dim]["signals"].append({
+            "signal": r.signal.value,
+            "confidence": r.confidence,
+            "key_finding": r.evidence_pack.get("key_finding", ""),
+            "reasoning": r.reasoning[:200],
+        })
+
+    # ── Aggregate each dimension ───────────────────────────────
+    for dim_key, dim_data in dimensions.items():
+        signals = dim_data["signals"]
+        if not signals:
+            continue
+
+        # Average confidence
+        dim_data["avg_confidence"] = round(sum(s["confidence"] for s in signals) / len(signals))
+
+        # Dominant direction
+        buys = sum(1 for s in signals if s["signal"] in ("BUY", "LONG"))
+        sells = sum(1 for s in signals if s["signal"] in ("SELL", "SHORT"))
+        if buys > sells:
+            dim_data["direction"] = "BULLISH"
+        elif sells > buys:
+            dim_data["direction"] = "BEARISH"
+        else:
+            dim_data["direction"] = "NEUTRAL"
+
+        # Best key finding (highest confidence)
+        best = max(signals, key=lambda s: s["confidence"])
+        dim_data["key_finding"] = best["key_finding"] or best["reasoning"][:120]
+
+    # ── Build headline recommendation ──────────────────────────
+    price = price_data.get("price", 0)
+    change = price_data.get("change_pct", 0)
+    rsi = price_data.get("rsi_14", 0)
+
+    if lang == "es":
+        action_word = {"LONG": "COMPRA", "SHORT": "VENTA", "HOLD": "ESPERA"}.get(direction, "ESPERA")
+        if result.conviction >= 70:
+            headline = f"{action_word} {commodity} — Alta convicción ({result.conviction}%)"
+        elif result.conviction >= 50:
+            headline = f"{action_word} {commodity} — Convicción moderada ({result.conviction}%)"
+        else:
+            headline = f"ESPERA EN {commodity} — Señales mixtas ({result.conviction}%)"
+    else:
+        action_word = {"LONG": "BUY", "SHORT": "SELL", "HOLD": "HOLD"}.get(direction, "HOLD")
+        headline = f"{action_word} {commodity} — {result.conviction}% conviction"
+
+    # ── Build summary (2-3 sentences max, clear and actionable) ──
+    dim_list = sorted(dimensions.values(), key=lambda d: d["avg_confidence"], reverse=True)
+    top_dims = [d for d in dim_list if d["avg_confidence"] >= 50][:3]
+
+    if lang == "es" and top_dims:
+        summary_parts = []
+        for d in top_dims:
+            dir_word = {"BULLISH": "alcista", "BEARISH": "bajista"}.get(d["direction"], "neutral")
+            summary_parts.append(f"{d['label']}: {dir_word} ({d['avg_confidence']}%)")
+        summary = f"Sistema agentico analizó {commodity} en tiempo real. " + ". ".join([d["key_finding"][:100] for d in top_dims if d["key_finding"]])[:400]
+    else:
+        summary = f"Agentic system analyzed {commodity} in real-time across multiple dimensions."
+
+    # ── Build radar data (for frontend visualization) ──────────
+    radar = []
+    dim_order = ["supply", "demand", "macro", "technical", "geopolitical", "sentiment"]
+    for dim_key in dim_order:
+        if dim_key in dimensions:
+            d = dimensions[dim_key]
+            radar.append({
+                "dimension": dim_key,
+                "label": d["label"],
+                "score": d["avg_confidence"],
+                "direction": d["direction"],
+                "finding": d["key_finding"][:150],
+            })
+        else:
+            radar.append({
+                "dimension": dim_key,
+                "label": DIMENSION_LABELS.get(dim_key, {}).get(lang, dim_key),
+                "score": 0,
+                "direction": "NEUTRAL",
+                "finding": "",
+            })
+
+    return {
+        "headline": headline,
+        "action": action_word,
+        "summary": summary,
+        "dimensions": radar,
+        "execution_plan": execution_plan,
+        "key_risk": key_risk,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
 # MODELS
 # ═══════════════════════════════════════════════════════════════
 
@@ -400,6 +580,11 @@ async def analyze_endpoint(request: AnalyzeRequest):
                         "volatility": cd.get("volatility_ann_pct"),
                     }
 
+            # Build intelligence brief (structured by dimension)
+            intel_brief = _build_intelligence_brief(
+                result, commodity, price_data, language=request.language
+            )
+
             # Build response — frontend-compatible structure
             response = {
                 "pack_id": f"SW-{int(time.time())}",
@@ -448,6 +633,7 @@ async def analyze_endpoint(request: AnalyzeRequest):
                 "pipeline_latency_ms": latency_ms,
                 "execution_mode": result.metadata.get("execution_mode", "sequential") if hasattr(result, 'metadata') and isinstance(result.metadata, dict) else "sequential",
                 "providers_used": len(set(r.evidence_pack.get("model", "unknown") for r in result.all_results if not r.error)),
+                "intelligence_brief": intel_brief,
                 "pack_hash": f"sha256:{hash(result.reasoning) & 0xFFFFFFFF:08x}",
             }
 

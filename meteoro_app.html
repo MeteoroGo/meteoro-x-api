@@ -1245,158 +1245,173 @@ function App(){
                                 </div>
                             </div>
 
-                            {/* Narrative */}
-                            <div className="narrative">
-                                {results.consensus&&(
-                                    <div className="consensus">{results.consensus}</div>
-                                )}
-                                {results.what_happened&&(
-                                    <>
-                                        <div className="section-label">Inteligencia desplegada</div>
-                                        <p>{results.what_happened}</p>
-                                    </>
-                                )}
-                                {results.why_it_matters&&results.why_it_matters!==results.what_happened&&(
-                                    <>
-                                        <div className="section-label">Por qué importa</div>
-                                        <p>{results.why_it_matters}</p>
-                                    </>
-                                )}
-                                {!results.what_happened&&!results.why_it_matters&&results.signal?.reasoning&&(
-                                    <p>{results.signal.reasoning}</p>
-                                )}
-                            </div>
+                            {/* ═══ INTELLIGENCE BRIEF ═══ */}
+                            {(()=>{
+                                const ib=results.intelligence_brief||{};
+                                const dims=ib.dimensions||[];
+                                const ep=ib.execution_plan||{};
+                                const dir=getDirection(results.signal?.direction||results.signal?.action);
+                                const dirColor=dir==='LONG'?'#10B981':dir==='SHORT'?'#EF4444':'#F59E0B';
+                                const price=results.price_data?.price;
+                                const changePct=results.price_data?.change_pct||0;
+                                return(
+                                <>
+                                    {/* HEADLINE — the ONE thing you need to know */}
+                                    {ib.headline?(
+                                        <div style={{
+                                            fontSize:'14px',fontWeight:600,color:'#e5e5e5',
+                                            marginBottom:'12px',lineHeight:1.4,
+                                            animation:'card-in 0.4s ease-out',
+                                        }}>{ib.headline}</div>
+                                    ):(
+                                        <div style={{fontSize:'14px',fontWeight:600,color:'#e5e5e5',marginBottom:'12px'}}>
+                                            {dir} {results.commodity} — {results.signal?.conviction||0}%
+                                        </div>
+                                    )}
 
-                            {/* Key Findings */}
-                            {(results.top_findings||results.evidence_cards||[]).length>0&&(
-                                <div className="findings">
-                                    <div className="section-label" style={{marginBottom:'8px'}}>Hallazgos clave</div>
-                                    {(results.top_findings||results.evidence_cards||[]).slice(0,4).map((f,i)=>{
-                                        const sig=(f.signal||'HOLD').toUpperCase();
-                                        const badgeClass=sig==='BUY'?'buy':sig==='SELL'?'sell':'hold';
-                                        const text=f.finding||f.summary||f.key_finding||f.key||'';
-                                        if(!text||text.length<5)return null;
-                                        return(
-                                            <div key={i} className="finding-item">
-                                                <div className="finding-head">
-                                                    <span className="finding-agent">{f.agent||f.source||'Intel'}</span>
-                                                    <span className={`finding-badge ${badgeClass}`}>
-                                                        {sig} {f.confidence?f.confidence+'%':''}
-                                                    </span>
-                                                </div>
-                                                <div className="finding-text">{text.slice(0,180)}</div>
-                                                {f.confidence>0&&(
-                                                    <div className="finding-bar">
-                                                        <div className={`finding-bar-fill ${badgeClass}`} style={{width:f.confidence+'%'}}></div>
+                                    {/* SUMMARY — 2-3 sentences of actionable intelligence */}
+                                    {(ib.summary||results.what_happened)&&(
+                                        <div style={{
+                                            fontSize:'12px',color:'#90a0b0',lineHeight:1.7,
+                                            marginBottom:'16px',animation:'card-in 0.5s ease-out 0.1s both',
+                                        }}>{ib.summary||results.what_happened}</div>
+                                    )}
+
+                                    {/* INTELLIGENCE RADAR — dimensional breakdown */}
+                                    {dims.length>0&&(
+                                        <div style={{marginBottom:'16px',animation:'card-in 0.5s ease-out 0.2s both'}}>
+                                            <div style={{
+                                                fontFamily:'Share Tech Mono,monospace',fontSize:'8px',
+                                                color:'rgba(255,255,255,0.3)',letterSpacing:'2px',
+                                                marginBottom:'10px',textTransform:'uppercase'
+                                            }}>Radar de Inteligencia</div>
+                                            {dims.filter(d=>d.score>0).map((d,i)=>{
+                                                const dColor=d.direction==='BULLISH'?'#10B981':d.direction==='BEARISH'?'#EF4444':'#6B7280';
+                                                const dWord=d.direction==='BULLISH'?'Alcista':d.direction==='BEARISH'?'Bajista':'Neutral';
+                                                return(
+                                                    <div key={i} style={{marginBottom:'8px',animation:`finding-in 0.4s ease-out ${0.1*i}s both`}}>
+                                                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'3px'}}>
+                                                            <span style={{fontFamily:'Share Tech Mono,monospace',fontSize:'10px',color:'#8090a0'}}>{d.label}</span>
+                                                            <span style={{fontFamily:'Share Tech Mono,monospace',fontSize:'9px',color:dColor}}>{dWord} {d.score}%</span>
+                                                        </div>
+                                                        <div style={{width:'100%',height:'4px',background:'rgba(255,255,255,0.04)',borderRadius:'2px',overflow:'hidden'}}>
+                                                            <div style={{width:d.score+'%',height:'100%',borderRadius:'2px',
+                                                                background:`linear-gradient(90deg, ${dColor}80, ${dColor})`,
+                                                                transition:'width 1s ease'}}></div>
+                                                        </div>
+                                                        {d.finding&&(
+                                                            <div style={{fontSize:'10px',color:'#607080',marginTop:'3px',lineHeight:1.4}}>{d.finding.slice(0,120)}</div>
+                                                        )}
                                                     </div>
-                                                )}
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+
+                                    {/* EXECUTION PLAN — what to DO */}
+                                    {ep.entry>0&&dir!=='HOLD'&&(
+                                        <div style={{
+                                            padding:'12px 14px',marginBottom:'14px',borderRadius:'8px',
+                                            background:'rgba(0,180,255,0.04)',border:'1px solid rgba(0,180,255,0.1)',
+                                            animation:'card-in 0.5s ease-out 0.3s both',
+                                        }}>
+                                            <div style={{
+                                                fontFamily:'Share Tech Mono,monospace',fontSize:'8px',
+                                                color:'rgba(255,255,255,0.3)',letterSpacing:'2px',
+                                                marginBottom:'8px',textTransform:'uppercase'
+                                            }}>Plan de Ejecución</div>
+                                            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px'}}>
+                                                <div style={{fontFamily:'Share Tech Mono,monospace',fontSize:'11px'}}>
+                                                    <span style={{color:'#506070'}}>Entrada </span>
+                                                    <span style={{color:'#e5e5e5'}}>${ep.entry.toLocaleString(undefined,{maximumFractionDigits:2})}</span>
+                                                </div>
+                                                <div style={{fontFamily:'Share Tech Mono,monospace',fontSize:'11px'}}>
+                                                    <span style={{color:'#506070'}}>Stop </span>
+                                                    <span style={{color:'#EF4444'}}>${ep.stop_loss.toLocaleString(undefined,{maximumFractionDigits:2})}</span>
+                                                    {ep.entry>0&&(<span style={{color:'#506070',fontSize:'9px'}}> ({((ep.stop_loss-ep.entry)/ep.entry*100).toFixed(1)}%)</span>)}
+                                                </div>
+                                                <div style={{fontFamily:'Share Tech Mono,monospace',fontSize:'11px'}}>
+                                                    <span style={{color:'#506070'}}>Target </span>
+                                                    <span style={{color:'#10B981'}}>${ep.take_profit.toLocaleString(undefined,{maximumFractionDigits:2})}</span>
+                                                    {ep.entry>0&&(<span style={{color:'#506070',fontSize:'9px'}}> (+{((ep.take_profit-ep.entry)/ep.entry*100).toFixed(1)}%)</span>)}
+                                                </div>
+                                                <div style={{fontFamily:'Share Tech Mono,monospace',fontSize:'11px'}}>
+                                                    <span style={{color:'#506070'}}>Tamaño </span>
+                                                    <span style={{color:'#e5e5e5'}}>{ep.position_size}%</span>
+                                                </div>
                                             </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
+                                            {ep.entry>0&&ep.stop_loss>0&&ep.take_profit>0&&(
+                                                <div style={{fontFamily:'Share Tech Mono,monospace',fontSize:'9px',color:'#506070',marginTop:'6px'}}>
+                                                    R:R {Math.abs((ep.take_profit-ep.entry)/(ep.entry-ep.stop_loss)).toFixed(1)}:1
+                                                    {ep.reasoning&&(<span> — {ep.reasoning.slice(0,80)}</span>)}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
 
-                            {/* Causal Chain — shows agent reasoning flow */}
-                            {results.causal_chain&&results.causal_chain.length>0&&(
-                                <div style={{margin:'12px 0 8px'}}>
-                                    <div style={{
-                                        fontFamily:'Share Tech Mono,monospace',fontSize:'9px',
-                                        color:'rgba(255,255,255,0.35)',letterSpacing:'2px',
-                                        marginBottom:'6px',textTransform:'uppercase'
-                                    }}>Cadena Causal ({results.causal_chain.length} fuentes)</div>
-                                    <div style={{
-                                        display:'flex',gap:'4px',flexWrap:'wrap',
-                                    }}>
-                                        {results.causal_chain.slice(0,5).map((c,i)=>{
-                                            const match=c.match(/\[(.+?)\]\s*(BUY|SELL|HOLD)\s*\((\d+)%\)/);
-                                            if(!match)return null;
-                                            const[,name,sig,conf]=match;
-                                            const color=sig==='BUY'?'#10B981':sig==='SELL'?'#EF4444':'#6B7280';
-                                            return(
-                                                <div key={i} style={{
-                                                    padding:'3px 7px',borderRadius:'4px',fontSize:'9px',
-                                                    fontFamily:'Share Tech Mono,monospace',
-                                                    background:`${color}15`,border:`1px solid ${color}30`,
-                                                    color:color,whiteSpace:'nowrap',
-                                                }}>{name} {sig} {conf}%</div>
-                                            );
-                                        })}
+                                    {/* KEY RISK — counterintelligence warning */}
+                                    {ib.key_risk&&(
+                                        <div style={{
+                                            padding:'10px 14px',marginBottom:'14px',borderRadius:'8px',
+                                            background:'rgba(239,68,68,0.04)',border:'1px solid rgba(239,68,68,0.1)',
+                                            animation:'card-in 0.5s ease-out 0.35s both',
+                                        }}>
+                                            <div style={{
+                                                fontFamily:'Share Tech Mono,monospace',fontSize:'8px',
+                                                color:'rgba(239,68,68,0.5)',letterSpacing:'2px',
+                                                marginBottom:'4px',textTransform:'uppercase'
+                                            }}>⚠ Riesgo Clave</div>
+                                            <div style={{fontSize:'11px',color:'#a08080',lineHeight:1.5}}>{ib.key_risk.slice(0,200)}</div>
+                                        </div>
+                                    )}
+
+                                    {/* Risk Guardian Veto */}
+                                    {results.risk_assessment?.veto_active&&(
+                                        <div style={{
+                                            padding:'10px 14px',margin:'0 0 12px',borderRadius:'8px',
+                                            background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.2)',
+                                            fontFamily:'Share Tech Mono,monospace',fontSize:'11px',color:'#EF4444',
+                                            letterSpacing:'0.5px',textAlign:'center',fontWeight:600
+                                        }}>
+                                            VETO ACTIVO — Riesgo elevado, se recomienda no operar
+                                        </div>
+                                    )}
+
+                                    {/* META BAR */}
+                                    <div className="a-meta">
+                                        {results.pipeline_latency_ms&&(
+                                            <div className="a-meta-item">{(results.pipeline_latency_ms/1000).toFixed(1)}s <span>análisis</span></div>
+                                        )}
+                                        {results.cost_usd>0&&(
+                                            <div className="a-meta-item">${results.cost_usd.toFixed(3)} <span>costo</span></div>
+                                        )}
+                                        {results.providers_used>1&&(
+                                            <div className="a-meta-item">{results.providers_used} <span>modelos IA</span></div>
+                                        )}
+                                        {results.execution_mode==='parallel'&&(
+                                            <div className="a-meta-item">⚡ <span>paralelo</span></div>
+                                        )}
                                     </div>
-                                </div>
-                            )}
 
-                            {/* Risk Assessment */}
-                            {results.risk_assessment?.veto_active&&(
-                                <div style={{
-                                    padding:'8px 12px',margin:'0 0 12px',borderRadius:'6px',
-                                    background:'rgba(239,68,68,0.06)',border:'1px solid rgba(239,68,68,0.15)',
-                                    fontFamily:'Share Tech Mono,monospace',fontSize:'10px',color:'#EF4444',
-                                    letterSpacing:'1px'
-                                }}>
-                                    ⚠ RISK GUARDIAN VETO ACTIVO
-                                </div>
-                            )}
-
-                            {/* Meta */}
-                            <div className="a-meta">
-                                <div className="a-meta-item">
-                                    {(results.evidence_cards||[]).length||results.swarm_results?.total_agents||0} <span>capacidades</span>
-                                </div>
-                                {results.pipeline_latency_ms&&(
-                                    <div className="a-meta-item">{(results.pipeline_latency_ms/1000).toFixed(1)}s <span>latencia</span></div>
-                                )}
-                                {results.cost_usd!==undefined&&results.cost_usd>0&&(
-                                    <div className="a-meta-item">${results.cost_usd.toFixed(4)} <span>costo</span></div>
-                                )}
-                                {results.risk_assessment&&(
-                                    <div className="a-meta-item">{results.risk_assessment.conviction_level} <span>convicción</span></div>
-                                )}
-                                {results.price_data?.rsi_14>0&&(
-                                    <div className="a-meta-item">RSI {results.price_data.rsi_14} <span>técnico</span></div>
-                                )}
-                                {results.swarm_results&&(
-                                    <div className="a-meta-item">{results.swarm_results.agents_bullish}↑ {results.swarm_results.agents_bearish}↓ {results.swarm_results.agents_neutral}→ <span>agentes</span></div>
-                                )}
-                                {results.providers_used>1&&(
-                                    <div className="a-meta-item">{results.providers_used} <span>modelos</span></div>
-                                )}
-                                {results.execution_mode==='parallel'&&(
-                                    <div className="a-meta-item">⚡ <span>paralelo</span></div>
-                                )}
-                            </div>
-
-                            {/* Speed comparison — impressive for demos */}
-                            {results.pipeline_latency_ms&&(
-                                <div className="speed-compare">
-                                    <div className="speed-ai">
-                                        <span className="speed-val">{(results.pipeline_latency_ms/1000).toFixed(1)}s</span>
-                                        <span className="speed-lbl">Meteoro X</span>
+                                    {/* ACTION BUTTONS */}
+                                    <div style={{textAlign:'center',display:'flex',gap:'8px',justifyContent:'center',marginTop:'8px'}}>
+                                        <button className="reset-btn" onClick={handleReset}>Nuevo Análisis</button>
+                                        <button className="reset-btn share-btn" onClick={()=>{
+                                            const brief=ib.headline||`${dir} ${results.commodity}`;
+                                            const priceStr=price?`$${price.toLocaleString()}`:'';
+                                            const txt=`METEORO X\n${brief}\n${priceStr} (${changePct>0?'+':''}${changePct}%)\n`
+                                                +(ib.summary?`\n${ib.summary.slice(0,200)}\n`:'')
+                                                +(ib.key_risk?`\n⚠ ${ib.key_risk.slice(0,100)}\n`:'')
+                                                +`\nmeteoro.io`;
+                                            navigator.clipboard.writeText(txt).then(()=>{
+                                                const btn=document.querySelector('.share-btn');
+                                                if(btn){btn.textContent='Copiado ✓';setTimeout(()=>{btn.textContent='Compartir'},1500)}
+                                            }).catch(()=>{});
+                                        }}>Compartir</button>
                                     </div>
-                                    <div className="speed-vs">vs</div>
-                                    <div className="speed-human">
-                                        <span className="speed-val">45+ min</span>
-                                        <span className="speed-lbl">Analista humano</span>
-                                    </div>
-                                </div>
-                            )}
-
-                            <div style={{textAlign:'center',display:'flex',gap:'8px',justifyContent:'center'}}>
-                                <button className="reset-btn" onClick={handleReset}>Nuevo Análisis</button>
-                                <button className="reset-btn share-btn" onClick={()=>{
-                                    const dir=getDirection(results.signal?.direction||results.signal?.action);
-                                    const price=results.price_data?.price?`$${results.price_data.price.toLocaleString()}`:'-';
-                                    const txt=`METEORO X — ${results.commodity||'COMMODITY'}\n`
-                                        +`Señal: ${dir} | Convicción: ${results.signal?.conviction||0}%\n`
-                                        +`Precio: ${price}\n`
-                                        +(results.consensus?`\n${results.consensus}\n`:'')
-                                        +(results.why_it_matters?`\n${results.why_it_matters}\n`:'')
-                                        +`\nmeteoro.io`;
-                                    navigator.clipboard.writeText(txt).then(()=>{
-                                        const btn=document.querySelector('.share-btn');
-                                        if(btn){btn.textContent='Copiado ✓';setTimeout(()=>{btn.textContent='Compartir'},1500)}
-                                    }).catch(()=>{});
-                                }}>Compartir</button>
-                            </div>
+                                </>
+                                );
+                            })()}
                         </>
                     )}
                 </div>
