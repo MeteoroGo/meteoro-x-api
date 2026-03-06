@@ -1022,12 +1022,14 @@ function App(){
 
     const chips=[
         'Analiza cobre Perú',
-        'Cerrejón coal disruption',
         'Oro — ¿comprar o vender?',
         'Petróleo OPEC recortes',
         'Café arabica Colombia',
         'Litio Chile SQM',
-        'Níquel Norilsk Rusia',
+        'Carbón Cerrejón',
+        'Trigo guerra Ucrania',
+        'Cacao crisis Ghana',
+        'Uranio demanda nuclear',
         'Gas natural LNG Europa',
     ];
 
@@ -1325,6 +1327,12 @@ function App(){
                                 )}
                                 {results.swarm_results&&(
                                     <div className="a-meta-item">{results.swarm_results.agents_bullish}↑ {results.swarm_results.agents_bearish}↓ {results.swarm_results.agents_neutral}→ <span>agentes</span></div>
+                                )}
+                                {results.providers_used>1&&(
+                                    <div className="a-meta-item">{results.providers_used} <span>modelos</span></div>
+                                )}
+                                {results.execution_mode==='parallel'&&(
+                                    <div className="a-meta-item">⚡ <span>paralelo</span></div>
                                 )}
                             </div>
 

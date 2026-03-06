@@ -446,6 +446,8 @@ async def analyze_endpoint(request: AnalyzeRequest):
                 },
                 "cost_usd": result.cost_usd,
                 "pipeline_latency_ms": latency_ms,
+                "execution_mode": result.metadata.get("execution_mode", "sequential") if hasattr(result, 'metadata') and isinstance(result.metadata, dict) else "sequential",
+                "providers_used": len(set(r.evidence_pack.get("model", "unknown") for r in result.all_results if not r.error)),
                 "pack_hash": f"sha256:{hash(result.reasoning) & 0xFFFFFFFF:08x}",
             }
 
