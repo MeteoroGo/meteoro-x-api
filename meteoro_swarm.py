@@ -305,18 +305,24 @@ class MeteorSwarm:
             print("[ERROR] LLM router not available — cannot run swarm")
             raise RuntimeError("LLM router not available")
 
-        # Build data string for agents
+        # Build data string for agents — compact but complete
         data_str = json.dumps(market_data, default=str, ensure_ascii=False)
         # Truncate if too long (LLM context limits)
-        if len(data_str) > 8000:
-            data_str = data_str[:8000] + "...[truncated]"
+        if len(data_str) > 10000:
+            data_str = data_str[:10000] + "...[truncated]"
 
         all_results: List[SuperAgentResult] = []
 
-        # Run agents 1-9 SEQUENTIALLY with spacing
-        # Gemini free tier = 15 RPM. Sequential with 5s spacing = safe.
-        # Total: 9 agents * ~8s each = ~72s
-        print(f"\n[SWARM] Running 9 agents SEQUENTIALLY (Gemini 15 RPM limit)...")
+        # Detect how many providers are available for parallel execution
+        try:
+            from multi_model_router import _get_available_models
+            n_providers = len(_get_available_models())
+        except Exception:
+            n_providers = 1
+
+        # With 1 provider (Gemini 15 RPM): sequential with 4s spacing
+        # With 2+ providers: could run in parallel batches (future optimization)
+        print(f"\n[SWARM] Running 9 agents (providers: {n_providers})...")
 
         for i, config in enumerate(self.agent_configs[:9]):
             # Space calls to avoid Gemini 429
@@ -429,8 +435,11 @@ MARKET DATA:
 REAL MARKET DATA (from yfinance + GDELT, fetched just now):
 {data_str}
 
-Analyze this REAL data and provide your assessment. Use the ACTUAL numbers.
-Do NOT invent or hallucinate data. Base your analysis on what you see above."""
+INSTRUCTIONS:
+1. Analyze this REAL data. Use the ACTUAL numbers provided above.
+2. Do NOT invent or hallucinate data.
+3. Respond with ONLY a JSON object. No text before or after the JSON.
+4. The JSON must have these exact fields: signal, confidence, reasoning, sources_analyzed, key_finding."""
 
             # Call LLM via router (DeepSeek, Gemini, or Claude)
             llm_response: LLMResponse = await asyncio.wait_for(
@@ -501,50 +510,93 @@ Do NOT invent or hallucinate data. Base your analysis on what you see above."""
     ) -> Tuple[Signal, int, str, Dict[str, Any]]:
         """
         Parse LLM text response into structured signal.
-        Handles JSON, partial JSON, and plain text responses.
+        Handles JSON, partial JSON, markdown code blocks, and plain text responses.
         """
+        if not content or not content.strip():
+            return Signal.HOLD, 0, "Empty response from model", {"parse_error": True}
+
+        # Strip markdown code block wrappers (```json ... ```)
+        cleaned = content.strip()
+        if cleaned.startswith("```"):
+            lines = cleaned.split("\n")
+            # Remove first line (```json or ```) and last line (```)
+            if len(lines) >= 3:
+                cleaned = "\n".join(lines[1:-1]) if lines[-1].strip() == "```" else "\n".join(lines[1:])
+            cleaned = cleaned.strip()
+
         # Try to extract JSON from response
+        json_data = None
+
+        # Attempt 1: Direct JSON parse
         try:
-            # Find JSON in response (may have text around it)
-            json_start = content.find("{")
-            json_end = content.rfind("}") + 1
-            if json_start >= 0 and json_end > json_start:
-                json_str = content[json_start:json_end]
-                data = json.loads(json_str)
-
-                # Extract signal
-                sig_str = data.get("signal", "HOLD").upper().strip()
-                if sig_str == "BUY":
-                    signal = Signal.BUY
-                elif sig_str == "SELL":
-                    signal = Signal.SELL
-                else:
-                    signal = Signal.HOLD
-
-                confidence = max(0, min(100, int(data.get("confidence", 50))))
-                reasoning = data.get("reasoning", data.get("key_finding", "No reasoning provided"))
-                sources = data.get("sources_analyzed", 3)
-
-                return signal, confidence, reasoning, {
-                    "sources_analyzed": sources,
-                    "key_finding": data.get("key_finding", ""),
-                    "veto": data.get("veto", False),
-                    "raw_llm": data,
-                }
-
-        except (json.JSONDecodeError, ValueError, TypeError) as e:
+            json_data = json.loads(cleaned)
+        except (json.JSONDecodeError, ValueError):
             pass
+
+        # Attempt 2: Find JSON object in response
+        if json_data is None:
+            try:
+                json_start = cleaned.find("{")
+                json_end = cleaned.rfind("}") + 1
+                if json_start >= 0 and json_end > json_start:
+                    json_str = cleaned[json_start:json_end]
+                    json_data = json.loads(json_str)
+            except (json.JSONDecodeError, ValueError):
+                pass
+
+        # Attempt 3: Try to fix common JSON issues (trailing comma, unquoted keys)
+        if json_data is None:
+            try:
+                json_start = cleaned.find("{")
+                json_end = cleaned.rfind("}") + 1
+                if json_start >= 0 and json_end > json_start:
+                    json_str = cleaned[json_start:json_end]
+                    # Remove trailing commas before } or ]
+                    import re
+                    json_str = re.sub(r',\s*([}\]])', r'\1', json_str)
+                    json_data = json.loads(json_str)
+            except (json.JSONDecodeError, ValueError, ImportError):
+                pass
+
+        if json_data and isinstance(json_data, dict):
+            # Extract signal
+            sig_str = str(json_data.get("signal", "HOLD")).upper().strip()
+            if sig_str in ("BUY", "LONG", "BULLISH"):
+                signal = Signal.BUY
+            elif sig_str in ("SELL", "SHORT", "BEARISH"):
+                signal = Signal.SELL
+            else:
+                signal = Signal.HOLD
+
+            confidence = max(0, min(100, int(json_data.get("confidence", 50))))
+            reasoning = str(json_data.get("reasoning", json_data.get("key_finding", "No reasoning provided")))
+            sources = int(json_data.get("sources_analyzed", 3))
+            key_finding = str(json_data.get("key_finding", ""))
+
+            return signal, confidence, reasoning, {
+                "sources_analyzed": sources,
+                "key_finding": key_finding,
+                "veto": json_data.get("veto", False),
+                "raw_llm": json_data,
+            }
 
         # Fallback: try to extract signal from plain text
         content_upper = content.upper()
-        if "BUY" in content_upper and "SELL" not in content_upper:
+        # Count occurrences for better signal detection
+        buy_count = content_upper.count("BUY") + content_upper.count("LONG") + content_upper.count("BULLISH")
+        sell_count = content_upper.count("SELL") + content_upper.count("SHORT") + content_upper.count("BEARISH")
+
+        if buy_count > sell_count:
             signal = Signal.BUY
-        elif "SELL" in content_upper and "BUY" not in content_upper:
+        elif sell_count > buy_count:
             signal = Signal.SELL
         else:
             signal = Signal.HOLD
 
-        return signal, 40, content[:200], {"raw_text": content[:500], "parse_error": True}
+        # Extract a reasonable confidence from text
+        confidence = 45 if signal != Signal.HOLD else 30
+
+        return signal, confidence, content[:200], {"raw_text": content[:500], "parse_error": True}
 
     def _build_consensus(
         self,
