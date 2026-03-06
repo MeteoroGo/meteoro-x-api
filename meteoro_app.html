@@ -364,6 +364,16 @@
         .finding-badge.sell { color: #EF4444; background: rgba(239,68,68,0.08); }
         .finding-badge.hold { color: #F59E0B; background: rgba(245,158,11,0.08); }
         .finding-text { color: #708090; }
+        .finding-bar {
+            width: 100%; height: 3px; background: rgba(0,180,255,0.06);
+            border-radius: 2px; margin-top: 4px; overflow: hidden;
+        }
+        .finding-bar-fill {
+            height: 100%; border-radius: 2px; transition: width 0.8s ease;
+        }
+        .finding-bar-fill.buy { background: linear-gradient(90deg, #10B981, #34D399); }
+        .finding-bar-fill.sell { background: linear-gradient(90deg, #EF4444, #F87171); }
+        .finding-bar-fill.hold { background: linear-gradient(90deg, #F59E0B, #FBBF24); }
 
         .a-meta {
             display: flex; gap: 14px; padding-top: 12px;
@@ -999,9 +1009,26 @@ function App(){
                                                     </span>
                                                 </div>
                                                 <div className="finding-text">{text.slice(0,180)}</div>
+                                                {f.confidence>0&&(
+                                                    <div className="finding-bar">
+                                                        <div className={`finding-bar-fill ${badgeClass}`} style={{width:f.confidence+'%'}}></div>
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })}
+                                </div>
+                            )}
+
+                            {/* Risk Assessment */}
+                            {results.risk_assessment?.veto_active&&(
+                                <div style={{
+                                    padding:'8px 12px',margin:'0 0 12px',borderRadius:'6px',
+                                    background:'rgba(239,68,68,0.06)',border:'1px solid rgba(239,68,68,0.15)',
+                                    fontFamily:'Share Tech Mono,monospace',fontSize:'10px',color:'#EF4444',
+                                    letterSpacing:'1px'
+                                }}>
+                                    ⚠ RISK GUARDIAN VETO ACTIVE
                                 </div>
                             )}
 
@@ -1017,7 +1044,7 @@ function App(){
                                     <div className="a-meta-item">${results.cost_usd.toFixed(4)} <span>cost</span></div>
                                 )}
                                 {results.risk_assessment&&(
-                                    <div className="a-meta-item">{results.risk_assessment.conviction_level} <span>risk</span></div>
+                                    <div className="a-meta-item">{results.risk_assessment.conviction_level} <span>conviction</span></div>
                                 )}
                             </div>
 
