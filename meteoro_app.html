@@ -452,13 +452,46 @@
 
         /* ═══ RESPONSIVE ═══ */
         @media (max-width: 768px) {
-            #hud-logo, #hud-modes, #hud-alerts, #hud-layers { display: none; }
-            #hud-stats { bottom: 10px; left: 10px; }
+            #hud-logo { top: 8px; left: 8px; padding: 8px 12px; }
+            #logo-main { font-size: 14px; letter-spacing: 3px; }
+            #logo-sub { font-size: 7px; letter-spacing: 2px; }
+            #hud-modes, #hud-alerts, #hud-layers { display: none; }
+            #hud-stats { bottom: auto; top: 8px; right: 8px; left: auto; padding: 6px 10px; gap: 10px; }
+            .hud-val { font-size: 14px; }
+            .hud-lbl { font-size: 6px; }
             #hud-coords { display: none; }
             #hud-legend { display: none; }
-            .analysis-panel { position: relative; right: auto; top: auto; width: 100%; max-width: 100%; margin-bottom: 8px; }
-            .search-bar { max-width: 100%; margin-bottom: 30px; }
-            .sig-card { flex-direction: column; gap: 16px; align-items: flex-start; }
+            #ver { font-size: 6px; }
+
+            .analysis-panel {
+                position: fixed; right: 0; left: 0; top: auto; bottom: 70px;
+                width: 100%; max-width: 100%; max-height: 55vh;
+                border-radius: 12px 12px 0 0; padding: 14px;
+            }
+            .search-bar { max-width: 100%; margin-bottom: 20px; padding: 0 12px; }
+            .search-in { font-size: 16px; padding: 14px 44px 14px 14px; } /* prevent iOS zoom */
+            .chips-bar { gap: 6px; padding: 0 12px; margin-bottom: 10px; }
+            .chip { font-size: 10px; padding: 4px 10px; }
+            .sig-card { flex-direction: row; gap: 12px; padding: 14px; }
+            .sig-ticker { font-size: 18px; }
+            .sig-price { font-size: 12px; }
+            .gauge-svg { width: 60px; height: 60px; }
+            .narrative p { font-size: 11px; }
+            .narrative .consensus { font-size: 10px; }
+            .finding-item { font-size: 10px; }
+            .a-meta { gap: 10px; }
+            .a-meta-item { font-size: 9px; }
+            .speed-compare { padding: 8px 0; }
+            .speed-val { font-size: 14px; }
+        }
+
+        /* Extra small screens */
+        @media (max-width: 380px) {
+            .analysis-panel { max-height: 50vh; padding: 10px; }
+            .sig-card { padding: 10px; }
+            .sig-ticker { font-size: 16px; }
+            .chips-bar { gap: 4px; }
+            .chip { font-size: 9px; padding: 3px 8px; }
         }
     </style>
 </head>
@@ -754,6 +787,35 @@
         world.controls().autoRotate = true;
     };
 
+    // ═══ PULSE EFFECT: Visual burst when analysis completes ═══
+    window.pulseResult = function(commodity, direction) {
+        var locs = {
+            COAL:{lat:5,lng:-60}, COPPER:{lat:-20,lng:-70},
+            IRON:{lat:-15,lng:-45}, GOLD:{lat:5,lng:-75},
+            OIL:{lat:25,lng:50}, NATURAL_GAS:{lat:55,lng:60},
+            NICKEL:{lat:60,lng:80}, COBALT:{lat:-5,lng:25},
+            COFFEE:{lat:0,lng:-55}, WHEAT:{lat:45,lng:30},
+            LITHIUM:{lat:-25,lng:-68}, SILVER:{lat:20,lng:-100},
+            SUGAR:{lat:-10,lng:-50}, SOY:{lat:-20,lng:-55},
+            CORN:{lat:40,lng:-95}, PLATINUM:{lat:-28,lng:28},
+            PALLADIUM:{lat:55,lng:40}, SHIPPING:{lat:20,lng:60},
+            GENERAL:{lat:10,lng:0},
+        };
+        var loc = locs[commodity] || locs.GENERAL;
+        var pulseColor = direction === 'LONG' ? 'rgba(16,185,129,' : direction === 'SHORT' ? 'rgba(239,68,68,' : 'rgba(245,158,11,';
+
+        // Add 3 dramatic pulse rings
+        var pulseRings = [
+            {lat:loc.lat, lng:loc.lng, maxR:6, speed:3, color: function(t){return pulseColor + Math.max(0,0.8-t) + ')'}},
+            {lat:loc.lat, lng:loc.lng, maxR:8, speed:2, color: function(t){return pulseColor + Math.max(0,0.5-t) + ')'}},
+            {lat:loc.lat, lng:loc.lng, maxR:10, speed:1.5, color: function(t){return pulseColor + Math.max(0,0.3-t) + ')'}},
+        ];
+        world.ringsData(rings.concat(pulseRings));
+
+        // Return to normal rings after 4 seconds
+        setTimeout(function(){ world.ringsData(rings); }, 4000);
+    };
+
     // HUD updates
     function animC(id,target,dur) {
         var el=document.getElementById(id),start=parseInt(el.textContent)||0;
@@ -939,9 +1001,11 @@ function App(){
         'Analiza cobre Perú',
         'Cerrejón coal disruption',
         'Oro — ¿comprar o vender?',
-        'Petróleo WTI hoy',
-        'Café Colombia',
-        'Litio Chile',
+        'Petróleo OPEC recortes',
+        'Café arabica Colombia',
+        'Litio Chile SQM',
+        'Níquel Norilsk Rusia',
+        'Gas natural LNG Europa',
     ];
 
     // Core API call with retry logic
@@ -1016,6 +1080,9 @@ function App(){
                 setPhase('consensus');
                 await new Promise(r=>setTimeout(r,600));
                 setPhase('done'); setResults(data);
+                // Trigger visual pulse on globe
+                const dir=getDirection(data.signal?.direction||data.signal?.action);
+                if(window.pulseResult) window.pulseResult(commodity,dir);
             } else {
                 throw new Error('No se pudo obtener respuesta del servidor');
             }
