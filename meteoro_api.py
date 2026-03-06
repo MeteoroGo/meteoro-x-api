@@ -1,5 +1,5 @@
 """
-METEORO X v9.3 — API Server
+METEORO X v9.4 — API Server
 ==============================
 FastAPI server powering the Meteoro Autonomous Intelligence System.
 
@@ -67,7 +67,7 @@ except Exception:
 app = FastAPI(
     title="Meteoro X — Autonomous Intelligence",
     description="AI-Native Autonomous Commodity Intelligence | Agentic System",
-    version="9.3.0",
+    version="9.4.0",
 )
 
 app.add_middleware(
@@ -147,18 +147,19 @@ def _signal_to_direction(signal_action: str) -> str:
 
 
 # Capability display names — maps internal agent names to clean labels
+# Keys must match substrings in agent_name (case-insensitive)
 CAPABILITY_NAMES = {
-    "Satellite Recon": {"en": "Satellite Intelligence", "es": "Inteligencia Satelital"},
-    "Maritime Intel": {"en": "Maritime Tracking", "es": "Rastreo Marítimo"},
-    "Supply Chain Mapper": {"en": "Supply Chain Analysis", "es": "Cadena de Suministro"},
-    "LatAm OSINT": {"en": "Regional Intelligence", "es": "Inteligencia Regional"},
-    "China Demand Oracle": {"en": "Demand Analysis", "es": "Análisis de Demanda"},
-    "Geopolitical Risk": {"en": "Geopolitical Risk", "es": "Riesgo Geopolítico"},
+    "Satellite": {"en": "Satellite Intelligence", "es": "Inteligencia Satelital"},
+    "Maritime": {"en": "Maritime Tracking", "es": "Rastreo Marítimo"},
+    "Supply Chain": {"en": "Supply Chain Analysis", "es": "Cadena de Suministro"},
+    "LatAm": {"en": "Regional Intelligence", "es": "Inteligencia Regional"},
+    "China Demand": {"en": "Demand Analysis", "es": "Análisis de Demanda"},
+    "Geopolitical": {"en": "Geopolitical Risk", "es": "Riesgo Geopolítico"},
     "Macro Regime": {"en": "Macro Analysis", "es": "Análisis Macro"},
-    "Quant Alpha": {"en": "Quantitative Analysis", "es": "Análisis Cuantitativo"},
-    "Sentiment Flow": {"en": "Market Sentiment", "es": "Sentimiento de Mercado"},
+    "Quant": {"en": "Quantitative Analysis", "es": "Análisis Cuantitativo"},
+    "Sentiment": {"en": "Market Sentiment", "es": "Sentimiento de Mercado"},
     "Risk Guardian": {"en": "Risk Management", "es": "Gestión de Riesgo"},
-    "Execution Engine": {"en": "Execution Strategy", "es": "Estrategia de Ejecución"},
+    "Execution": {"en": "Execution Strategy", "es": "Estrategia de Ejecución"},
     "Counterintelligence": {"en": "Validation", "es": "Validación"},
 }
 
@@ -202,19 +203,33 @@ def _build_narrative(result, commodity: str, language: str = "es") -> dict:
     # Sort by confidence descending
     findings.sort(key=lambda x: x["confidence"], reverse=True)
 
-    # Build what_happened (locale-aware)
+    # Build what_happened (locale-aware, dynamic based on actual agents)
     active_agents = sum(1 for r in result.all_results if not r.error and r.confidence > 0)
+    active_names = [
+        _get_capability_name(r.agent_name, lang)
+        for r in result.all_results
+        if not r.error and r.confidence > 0
+    ]
+    # Show up to 5 capability names, then summarize the rest
+    if len(active_names) > 5:
+        shown = ", ".join(active_names[:5])
+        extra = len(active_names) - 5
+        if lang == "es":
+            cap_list = f"{shown} y {extra} más"
+        else:
+            cap_list = f"{shown} and {extra} more"
+    else:
+        cap_list = ", ".join(active_names)
+
     if lang == "es":
         what_happened = (
-            f"Sistema de inteligencia autónoma desplegó {active_agents} capacidades especializadas: "
-            f"reconocimiento satelital, rastreo marítimo, análisis de cadena de suministro, "
-            f"evaluación de riesgo geopolítico y modelado cuantitativo para analizar {commodity}."
+            f"Sistema de inteligencia autónoma desplegó {active_agents} capacidades especializadas "
+            f"({cap_list}) para analizar {commodity} en tiempo real."
         )
     else:
         what_happened = (
             f"Autonomous intelligence system deployed {active_agents} specialized capabilities "
-            f"across satellite reconnaissance, maritime tracking, supply chain analysis, "
-            f"geopolitical risk assessment, and quantitative modeling to analyze {commodity}."
+            f"({cap_list}) to analyze {commodity} in real-time."
         )
 
     # Build why_it_matters from top findings
@@ -225,6 +240,18 @@ def _build_narrative(result, commodity: str, language: str = "es") -> dict:
         why_it_matters = " | ".join(why_parts) if why_parts else result.reasoning
     else:
         why_it_matters = result.reasoning
+
+    # Build Spanish summary header for why_it_matters
+    if lang == "es" and findings:
+        n_sources = len(findings)
+        signal_word = "alcista" if direction == "LONG" else ("bajista" if direction == "SHORT" else "neutral")
+        if conviction >= 70:
+            es_header = f"Análisis de {n_sources} fuentes indica tendencia {signal_word} con alta convicción."
+        elif conviction >= 50:
+            es_header = f"Análisis de {n_sources} fuentes sugiere tendencia {signal_word} con convicción moderada."
+        else:
+            es_header = f"Análisis de {n_sources} fuentes muestra señales mixtas con sesgo {signal_word}."
+        why_it_matters = f"{es_header} {why_it_matters}"
 
     # Build consensus description (locale-aware)
     if lang == "es":
