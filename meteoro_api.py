@@ -451,6 +451,58 @@ async def get_latency_stats():
     return {"error": "Benchmark not available"}
 
 
+@app.get("/api/diagnostics")
+async def diagnostics():
+    """System diagnostics — shows provider status without exposing keys."""
+    try:
+        from multi_model_router import (
+            _get_available_models, _get_available_providers,
+            get_active_routing, get_cost_summary, MODELS, _is_valid_api_key
+        )
+        import os
+
+        models = _get_available_models()
+        providers = _get_available_providers()
+        routing = get_active_routing()
+        cost = get_cost_summary()
+
+        # Check each provider (without exposing keys)
+        provider_status = {}
+        for model_key, profile in MODELS.items():
+            key = os.getenv(profile.api_key_env, "")
+            if not key:
+                status = "not_configured"
+            elif not _is_valid_api_key(key):
+                status = "placeholder"
+            else:
+                status = "active"
+            provider_status[model_key] = {
+                "provider": profile.provider.value,
+                "status": status,
+                "model_id": profile.model_id,
+            }
+
+        # Count routing distribution
+        model_counts = {}
+        for agent, model in routing.items():
+            model_counts[model] = model_counts.get(model, 0) + 1
+
+        return {
+            "status": "ok",
+            "version": "9.2.4",
+            "providers": provider_status,
+            "active_models": list(models),
+            "active_providers": list(providers),
+            "routing_distribution": model_counts,
+            "total_agents": len(routing),
+            "cost_summary": cost,
+            "swarm_active": HAS_SWARM,
+            "data_sources_active": HAS_MARKET_DATA if 'HAS_MARKET_DATA' in dir() else "unknown",
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
 # ═══════════════════════════════════════════════════════════════
 # WEBSOCKET ENDPOINT
 # ═══════════════════════════════════════════════════════════════
@@ -482,6 +534,10 @@ async def websocket_analyze(websocket: WebSocket):
                     result = await swarm.analyze(commodity, context={"command": command})
                     latency_ms = int((time.time() - start) * 1000)
 
+                    # Build rich narrative (same as REST endpoint)
+                    narrative = _build_narrative(result, commodity)
+                    direction = narrative["direction"]
+
                     await websocket.send_json({
                         "type": "result",
                         "pack_id": f"SW-{int(time.time())}",
@@ -490,15 +546,37 @@ async def websocket_analyze(websocket: WebSocket):
                         "commodity": commodity,
                         "signal": {
                             "action": result.final_signal.value,
+                            "direction": direction,
+                            "ticker": commodity,
                             "conviction": result.conviction,
                             "reasoning": result.reasoning,
                         },
-                        "what_happened": f"Agentic system analyzed {commodity}",
-                        "why_it_matters": result.reasoning,
+                        "swarm_results": {
+                            "agents_bullish": result.agents_bullish,
+                            "agents_bearish": result.agents_bearish,
+                            "agents_neutral": result.agents_neutral,
+                            "risk_veto": result.risk_guardian_veto,
+                            "total_agents": len(result.all_results),
+                        },
+                        "what_happened": narrative["what_happened"],
+                        "why_it_matters": narrative["why_it_matters"],
+                        "consensus": narrative["consensus"],
                         "evidence_cards": [
-                            {"source": r.agent_name, "signal": r.signal.value, "confidence": r.confidence}
-                            for r in result.all_results if not r.error
+                            {
+                                "source": r.agent_name,
+                                "signal": r.signal.value,
+                                "confidence": r.confidence,
+                                "summary": r.reasoning[:200],
+                                "key_finding": r.evidence_pack.get("key_finding", ""),
+                            }
+                            for r in result.all_results if not r.error and r.confidence > 0
                         ],
+                        "top_findings": narrative["top_findings"],
+                        "risk_assessment": {
+                            "veto_active": result.risk_guardian_veto,
+                            "conviction_level": "HIGH" if result.conviction >= 75 else "MEDIUM" if result.conviction >= 50 else "LOW",
+                        },
+                        "cost_usd": result.cost_usd,
                         "pipeline_latency_ms": latency_ms,
                     })
                 except Exception as e:
