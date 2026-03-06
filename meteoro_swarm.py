@@ -236,8 +236,9 @@ class SwarmSignal:
 
 class MeteorSwarm:
     """
-    Meteoro Swarm v7.2 — Real Data + Real LLM Analysis.
+    Meteoro Swarm v9.3 — Real Data + Real LLM Analysis.
     Agentic system with multi-model intelligence doing actual analysis.
+    Supports parallel batch execution when 2+ providers available.
     """
 
     TIME_BUDGET_MS = 120_000  # 120 seconds total
@@ -296,9 +297,20 @@ class MeteorSwarm:
 
             except Exception as e:
                 print(f"[DATA] Error fetching market data: {e}")
-                market_data = {"error": str(e)}
+                market_data = {"error": str(e), "note": "Using LLM knowledge as fallback"}
         else:
             print("[DATA] market_data module not available")
+
+        # Fallback context: ensure agents always have something to analyze
+        if not market_data or "error" in market_data:
+            market_data = market_data or {}
+            market_data["fallback"] = True
+            market_data["context"] = (
+                f"Analyze {commodity} commodity markets using your training knowledge. "
+                f"Focus on: current supply-demand dynamics, geopolitical risks, price trends, "
+                f"and any recent developments that could impact {commodity} prices. "
+                f"Provide your best assessment based on known market conditions."
+            )
 
         # ─── STEP 2: RUN ALL AGENTS WITH LLM ─────────────────────
         if not HAS_LLM:
@@ -512,15 +524,26 @@ INSTRUCTIONS:
 3. Respond with ONLY a JSON object. No text before or after the JSON.
 4. The JSON must have these exact fields: signal, confidence, reasoning, sources_analyzed, key_finding."""
 
-            # Call LLM via router (DeepSeek, Gemini, or Claude)
-            llm_response: LLMResponse = await asyncio.wait_for(
-                call_llm(
-                    agent_name=router_name,
-                    system_prompt=config["prompt"],
-                    user_message=user_message,
-                ),
-                timeout=self.AGENT_TIMEOUT_MS / 1000.0,
-            )
+            # Call LLM via router with retry on 429 (rate limit)
+            max_retries = 2
+            for attempt in range(max_retries):
+                try:
+                    llm_response: LLMResponse = await asyncio.wait_for(
+                        call_llm(
+                            agent_name=router_name,
+                            system_prompt=config["prompt"],
+                            user_message=user_message,
+                        ),
+                        timeout=self.AGENT_TIMEOUT_MS / 1000.0,
+                    )
+                    break  # Success
+                except Exception as retry_e:
+                    if "429" in str(retry_e) and attempt < max_retries - 1:
+                        wait = 4.0 + attempt * 2.0  # 4s, then 6s
+                        print(f"  [{agent_name:25s}] Rate limited (429) — retrying in {wait}s...")
+                        await asyncio.sleep(wait)
+                    else:
+                        raise  # Re-raise if not 429 or last attempt
 
             latency = int((time.time() - agent_start) * 1000)
 
