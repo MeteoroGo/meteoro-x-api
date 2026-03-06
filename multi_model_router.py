@@ -91,15 +91,15 @@ class ModelProfile:
 
 MODELS: Dict[str, ModelProfile] = {
     "claude-haiku": ModelProfile(
-        name="Claude Haiku 3.5",
-        model_id="claude-3-5-haiku-20241022",
+        name="Claude Haiku 4.5",
+        model_id="claude-haiku-4-5-20251001",
         provider=ModelProvider.ANTHROPIC,
         base_url="https://api.anthropic.com/v1/messages",
         api_key_env="ANTHROPIC_API_KEY",
-        cost_input_per_m=0.25,
-        cost_output_per_m=1.25,
+        cost_input_per_m=0.80,
+        cost_output_per_m=4.00,
         specialization=["synthesis", "coordination", "risk", "spanish"],
-        timeout_s=12.0,
+        timeout_s=15.0,
     ),
     "deepseek-v3": ModelProfile(
         name="DeepSeek V3",
