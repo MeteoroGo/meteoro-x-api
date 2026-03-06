@@ -1,7 +1,7 @@
 """
-METEORO X v7.0 — API Server
+METEORO X v9.2 — API Server
 ==============================
-FastAPI server connecting the Meteoro Agent Swarm to the Lovable frontend.
+FastAPI server powering the Meteoro Autonomous Intelligence System.
 
 Endpoints:
   POST /api/analyze       - Full agentic system analysis
@@ -63,9 +63,9 @@ except Exception:
 # ═══════════════════════════════════════════════════════════════
 
 app = FastAPI(
-    title="Meteoro X — Agent Swarm API",
+    title="Meteoro X — Autonomous Intelligence",
     description="AI-Native Autonomous Commodity Intelligence | Agentic System",
-    version="7.0.0",
+    version="9.2.0",
 )
 
 app.add_middleware(
@@ -121,6 +121,80 @@ def detect_commodity(command: str) -> str:
     return "GENERAL"
 
 
+def _signal_to_direction(signal_action: str) -> str:
+    """Map swarm signal (BUY/SELL/HOLD) to trading direction (LONG/SHORT/HOLD)."""
+    m = {"BUY": "LONG", "SELL": "SHORT"}
+    return m.get(signal_action.upper(), "HOLD")
+
+
+def _build_narrative(result, commodity: str) -> dict:
+    """
+    Build a rich intelligence narrative from swarm results.
+    Synthesizes agent findings into a compelling human-readable brief.
+    """
+    bullish = result.agents_bullish
+    bearish = result.agents_bearish
+    neutral = result.agents_neutral
+    total = bullish + bearish + neutral
+    direction = _signal_to_direction(result.final_signal.value)
+    conviction = result.conviction
+
+    # Collect key findings from agents (filter out errors and empty reasoning)
+    findings = []
+    for r in result.all_results:
+        if r.error or not r.reasoning or 'unavailable' in r.reasoning.lower():
+            continue
+        if r.confidence >= 40:
+            findings.append({
+                "agent": r.agent_name,
+                "signal": r.signal.value,
+                "confidence": r.confidence,
+                "finding": r.reasoning[:300],
+                "key": r.evidence_pack.get("key_finding", ""),
+            })
+
+    # Sort by confidence descending
+    findings.sort(key=lambda x: x["confidence"], reverse=True)
+
+    # Build what_happened
+    active_agents = sum(1 for r in result.all_results if not r.error and r.confidence > 0)
+    what_happened = (
+        f"Autonomous intelligence system deployed {active_agents} specialized capabilities "
+        f"across satellite reconnaissance, maritime tracking, supply chain analysis, "
+        f"geopolitical risk assessment, and quantitative modeling to analyze {commodity}."
+    )
+
+    # Build why_it_matters from top findings
+    if findings:
+        top = findings[:3]
+        points = [f.get("key") or f["finding"][:120] for f in top]
+        why_parts = [p for p in points if p and len(p) > 10]
+        why_it_matters = " | ".join(why_parts) if why_parts else result.reasoning
+    else:
+        why_it_matters = result.reasoning
+
+    # Build consensus description
+    if conviction >= 80:
+        strength = "High-conviction"
+    elif conviction >= 60:
+        strength = "Moderate-conviction"
+    else:
+        strength = "Low-conviction"
+
+    consensus_text = (
+        f"{strength} {direction} signal: {bullish} bullish, {bearish} bearish, "
+        f"{neutral} neutral out of {total} intelligence streams."
+    )
+
+    return {
+        "what_happened": what_happened,
+        "why_it_matters": why_it_matters,
+        "consensus": consensus_text,
+        "top_findings": findings[:5],
+        "direction": direction,
+    }
+
+
 # ═══════════════════════════════════════════════════════════════
 # MODELS
 # ═══════════════════════════════════════════════════════════════
@@ -151,17 +225,32 @@ async def serve_frontend():
 @app.get("/api/health")
 async def health():
     swarm = get_swarm()
+    # Import available provider info without exposing model names
+    try:
+        from multi_model_router import _get_available_models, get_cost_summary
+        active_models = len(_get_available_models())
+        cost = get_cost_summary()
+    except Exception:
+        active_models = 0
+        cost = {}
     return {
         "status": "operational",
-        "system": "Meteoro X Agent Swarm",
-        "version": "7.0.0",
+        "system": "Meteoro X Autonomous Intelligence",
+        "version": "9.2.0",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "swarm_active": HAS_SWARM,
-        "super_agents": 12 if HAS_SWARM else 0,
-        "swarms": 4 if HAS_SWARM else 0,
-        "models": ["claude-haiku", "deepseek-v3", "kimi-v1", "gemini-flash"],
+        "capabilities": {
+            "satellite_recon": True,
+            "maritime_intel": True,
+            "supply_chain": True,
+            "geopolitical_risk": True,
+            "quantitative_analysis": True,
+            "risk_management": True,
+        },
+        "active_providers": active_models,
         "data_sources": 8,
         "signals_generated": len(signal_history),
+        "cost_summary": cost,
         "uptime": "active",
     }
 
@@ -189,15 +278,21 @@ async def analyze_endpoint(request: AnalyzeRequest):
             result = await swarm.analyze(commodity, context={"command": request.command})
             latency_ms = int((time.time() - start) * 1000)
 
-            # Build response
+            # Build rich narrative
+            narrative = _build_narrative(result, commodity)
+            direction = narrative["direction"]
+
+            # Build response — frontend-compatible structure
             response = {
                 "pack_id": f"SW-{int(time.time())}",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "command": request.command,
                 "commodity": commodity,
-                "system": "swarm_v7",
+                "system": "swarm_v9",
                 "signal": {
                     "action": result.final_signal.value,
+                    "direction": direction,
+                    "ticker": commodity,
                     "conviction": result.conviction,
                     "reasoning": result.reasoning,
                 },
@@ -208,28 +303,30 @@ async def analyze_endpoint(request: AnalyzeRequest):
                     "risk_veto": result.risk_guardian_veto,
                     "total_agents": len(result.all_results),
                 },
-                "agent_details": [r.to_dict() for r in result.all_results],
-                "cost_usd": result.cost_usd,
-                "pipeline_latency_ms": latency_ms,
-                "what_happened": f"Agentic system analyzed {commodity}",
-                "why_it_matters": result.reasoning,
+                "what_happened": narrative["what_happened"],
+                "why_it_matters": narrative["why_it_matters"],
+                "consensus": narrative["consensus"],
                 "evidence_cards": [
                     {
                         "source": r.agent_name,
                         "signal": r.signal.value,
                         "confidence": r.confidence,
                         "summary": r.reasoning[:200],
+                        "key_finding": r.evidence_pack.get("key_finding", ""),
                     }
-                    for r in result.all_results if not r.error
+                    for r in result.all_results if not r.error and r.confidence > 0
                 ],
+                "top_findings": narrative["top_findings"],
                 "causal_chain": [
                     f"[{r.agent_name}] {r.signal.value} ({r.confidence}%): {r.reasoning[:80]}"
-                    for r in result.all_results if not r.error
+                    for r in result.all_results if not r.error and r.confidence > 0
                 ],
                 "risk_assessment": {
                     "veto_active": result.risk_guardian_veto,
                     "conviction_level": "HIGH" if result.conviction >= 75 else "MEDIUM" if result.conviction >= 50 else "LOW",
                 },
+                "cost_usd": result.cost_usd,
+                "pipeline_latency_ms": latency_ms,
                 "pack_hash": f"sha256:{hash(result.reasoning) & 0xFFFFFFFF:08x}",
             }
 
@@ -240,7 +337,7 @@ async def analyze_endpoint(request: AnalyzeRequest):
                 "commodity": commodity,
                 "signal": response["signal"],
                 "latency_ms": latency_ms,
-                "system": "swarm_v7",
+                "system": "swarm_v9",
             })
 
             return response
@@ -421,10 +518,19 @@ async def websocket_analyze(websocket: WebSocket):
 @app.on_event("startup")
 async def startup():
     print("=" * 60)
-    print("  METEORO X v7.0 — Agent Swarm API")
-    print("  Agentic System | Multi-Model Intelligence")
+    print("  METEORO X v9.2 — Autonomous Intelligence API")
+    print("  Agentic System | Multi-Model Router | Real Data")
     print(f"  Swarm Available: {HAS_SWARM}")
     print(f"  Legacy Pipeline: {HAS_LEGACY}")
+    # Log active providers
+    try:
+        from multi_model_router import _get_available_models, _get_available_providers
+        models = _get_available_models()
+        providers = _get_available_providers()
+        print(f"  Active Models: {models or 'none'}")
+        print(f"  Active Providers: {providers or 'none'}")
+    except Exception as e:
+        print(f"  Router status: {e}")
     print("=" * 60)
     # Pre-initialize swarm
     get_swarm()

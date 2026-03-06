@@ -39,8 +39,24 @@ except ImportError:
     httpx = None
 
 # ═══════════════════════════════════════════════════════════════
-# RATE LIMITING — Prevent 429 errors on free tier APIs
+# API KEY VALIDATION
+# Filters out placeholder values and keys that are too short
+# to be real. Prevents wasted time on failed auth attempts.
 # ═══════════════════════════════════════════════════════════════
+
+_PLACEHOLDER_VALUES = {"PENDING", "NONE", "TODO", "XXX", "PLACEHOLDER", "CHANGEME", "YOUR_KEY_HERE", ""}
+
+def _is_valid_api_key(key: str) -> bool:
+    """Check if an API key is real (not a placeholder and long enough)."""
+    if not key:
+        return False
+    cleaned = key.strip().upper()
+    if cleaned in _PLACEHOLDER_VALUES:
+        return False
+    # Real API keys are at least 20 chars
+    if len(key.strip()) < 20:
+        return False
+    return True
 
 # ═══════════════════════════════════════════════════════════════
 # SIMPLE APPROACH — No rate limiter in router.
@@ -160,32 +176,36 @@ FALLBACK_CHAIN: Dict[str, List[str]] = {
 
 def _get_available_providers() -> set:
     """
-    Detect which providers are available based on configured API keys.
+    Detect which providers are available based on VALID API keys.
+    Filters out placeholder values like "PENDING", "NONE", etc.
 
     Returns:
-        set: Provider enum values ("anthropic", "deepseek", "kimi", "gemini")
-             for which API keys are configured.
+        set: Provider enum values for which REAL API keys are configured.
     """
     available = set()
     for model_key, profile in MODELS.items():
         api_key = os.getenv(profile.api_key_env, "").strip()
-        if api_key:
+        if _is_valid_api_key(api_key):
             available.add(profile.provider.value)
+            logger.info(f"[ROUTER] Provider {profile.provider.value} ACTIVE ({model_key})")
+        else:
+            if api_key:
+                logger.warning(f"[ROUTER] {profile.api_key_env} has placeholder value — SKIPPED")
     return available
 
 
 def _get_available_models() -> set:
     """
-    Detect which models are available based on configured API keys.
+    Detect which models are available based on VALID API keys.
+    Filters out placeholder values.
 
     Returns:
-        set: Model keys (e.g., "claude-haiku", "deepseek-v3") for which
-             API keys are configured.
+        set: Model keys for which REAL API keys are configured.
     """
     available = set()
     for model_key, profile in MODELS.items():
         api_key = os.getenv(profile.api_key_env, "").strip()
-        if api_key:
+        if _is_valid_api_key(api_key):
             available.add(model_key)
     return available
 
@@ -385,8 +405,8 @@ async def call_llm(
         profile = MODELS.get(model_key)
         if not profile:
             continue
-        api_key = os.getenv(profile.api_key_env, "")
-        if not api_key:
+        api_key = os.getenv(profile.api_key_env, "").strip()
+        if not _is_valid_api_key(api_key):
             continue
         caller = PROVIDER_CALLERS.get(profile.provider)
         if not caller:

@@ -241,8 +241,8 @@ class MeteorSwarm:
     """
 
     TIME_BUDGET_MS = 120_000  # 120 seconds total
-    AGENT_TIMEOUT_MS = 12_000  # 12 seconds per agent (single LLM call)
-    AGENT_SPACING_S = 5.0  # seconds between sequential calls (Gemini 15 RPM)
+    AGENT_TIMEOUT_MS = 15_000  # 15 seconds per agent (single LLM call)
+    AGENT_SPACING_S = 4.0  # seconds between sequential calls (Gemini 15 RPM = 1 req/4s)
 
     def __init__(self):
         self.agent_configs = AGENT_CONFIGS

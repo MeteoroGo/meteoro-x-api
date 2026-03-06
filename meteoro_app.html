@@ -301,10 +301,10 @@
         /* Signal card */
         .sig-card {
             border: 1px solid rgba(0,180,255,0.08);
-            border-radius: 10px; padding: 24px;
-            margin-bottom: 20px; display: flex;
+            border-radius: 10px; padding: 20px;
+            margin-bottom: 16px; display: flex;
             justify-content: space-between; align-items: center;
-            gap: 24px; background: rgba(0,10,30,0.4);
+            gap: 16px; background: rgba(0,10,30,0.4);
         }
         .sig-dir {
             font-size: 10px; text-transform: uppercase;
@@ -312,24 +312,63 @@
         }
         .sig-dir.long { color: #10B981; }
         .sig-dir.short { color: #EF4444; }
-        .sig-ticker { font-size: 26px; font-weight: 700; color: #e5e5e5; }
+        .sig-dir.hold { color: #F59E0B; }
+        .sig-ticker { font-size: 22px; font-weight: 700; color: #e5e5e5; }
 
-        .gauge-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-        .gauge-svg { width: 80px; height: 80px; }
-        .gauge-lbl { font-size: 9px; color: #506070; text-transform: uppercase; letter-spacing: 1px; }
+        .gauge-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .gauge-svg { width: 72px; height: 72px; }
+        .gauge-lbl { font-size: 8px; color: #506070; text-transform: uppercase; letter-spacing: 1px; }
 
-        .sig-metrics { display: flex; flex-direction: column; gap: 12px; }
-        .m-label { font-size: 10px; color: #506070; text-transform: uppercase; letter-spacing: 0.5px; }
-        .m-value { font-size: 15px; font-weight: 600; color: #d0dce8; }
+        .sig-split {
+            display: flex; gap: 6px; align-items: center;
+            font-family: 'Share Tech Mono', monospace; font-size: 10px;
+        }
+        .sig-split .bull { color: #10B981; }
+        .sig-split .bear { color: #EF4444; }
+        .sig-split .neut { color: #506070; }
 
         /* Narrative */
-        .narrative { margin-bottom: 20px; }
-        .narrative p { color: #90a0b0; font-size: 13px; line-height: 1.8; margin-bottom: 12px; }
+        .narrative { margin-bottom: 16px; }
+        .narrative p { color: #90a0b0; font-size: 12px; line-height: 1.7; margin-bottom: 10px; }
         .narrative p:last-child { margin-bottom: 0; }
+        .narrative .consensus {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 11px; color: #607080;
+            padding: 8px 12px; margin-bottom: 10px;
+            border-left: 2px solid rgba(0,180,255,0.2);
+            background: rgba(0,10,30,0.3);
+        }
+
+        /* Key findings */
+        .findings { margin-bottom: 16px; }
+        .finding-item {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(0,180,255,0.04);
+            font-size: 11px; line-height: 1.5;
+        }
+        .finding-item:last-child { border-bottom: none; }
+        .finding-head {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 3px;
+        }
+        .finding-agent {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 9px; color: #506070; letter-spacing: 1px;
+        }
+        .finding-badge {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 9px; padding: 1px 6px; border-radius: 3px;
+            letter-spacing: 0.5px;
+        }
+        .finding-badge.buy { color: #10B981; background: rgba(16,185,129,0.08); }
+        .finding-badge.sell { color: #EF4444; background: rgba(239,68,68,0.08); }
+        .finding-badge.hold { color: #F59E0B; background: rgba(245,158,11,0.08); }
+        .finding-text { color: #708090; }
 
         .a-meta {
-            display: flex; gap: 14px; padding-top: 14px;
+            display: flex; gap: 14px; padding-top: 12px;
             border-top: 1px solid rgba(0,180,255,0.06);
+            flex-wrap: wrap;
         }
         .a-meta-item {
             font-family: 'Share Tech Mono', monospace;
@@ -427,7 +466,7 @@
     <div class="leg-item"><span class="leg-bar" style="background:#ffc800;opacity:0.5"></span>RAIL</div>
 </div>
 
-<div id="ver">METEORO · v9.1</div>
+<div id="ver">METEORO · v9.2</div>
 
 <!-- React Root -->
 <div id="react-root"></div>
@@ -757,6 +796,7 @@ function App(){
     const[results,setResults]=useState(null);
     const[steps,setSteps]=useState([]);
     const[phase,setPhase]=useState('idle');
+    const[error,setError]=useState(null);
     const stepsRef=useRef(null);
     const panelRef=useRef(null);
 
@@ -788,14 +828,18 @@ function App(){
     },[steps]);
 
     const chips=[
-        'Cerrejón coal strike — trade impact?',
-        'Peru copper supply disruption',
-        'Baltic Dry shift analysis',
+        'Analiza cobre Perú',
+        'Cerrejón coal disruption',
+        'Oro — ¿comprar o vender?',
+        'Petróleo WTI hoy',
+        'Café Colombia',
+        'Litio Chile',
     ];
 
     const handleSearch=async(query=input)=>{
         if(!query.trim())return;
-        setInput(query); setAnalyzing(true); setResults(null); setPhase('scanning'); setSteps([]);
+        setInput(query); setAnalyzing(true); setResults(null);
+        setPhase('scanning'); setSteps([]); setError(null);
 
         const commodity=detectCommodity(query);
         if(window.flyToCommodity) window.flyToCommodity(commodity);
@@ -825,30 +869,45 @@ function App(){
                 setSteps(p=>[...p,'Generando análisis autónomo...']);
                 await new Promise(r=>setTimeout(r,800));
                 setPhase('done'); setResults(data);
-            } else throw new Error('API error');
+            } else {
+                const errText = await res.text().catch(()=>'Unknown error');
+                throw new Error(`API ${res.status}: ${errText.slice(0,100)}`);
+            }
         }catch(e){
             apiDone=true; clearInterval(iv);
-            setSteps(p=>[...p,'Convergiendo señales...','Generando análisis autónomo...']);
-            await new Promise(r=>setTimeout(r,800));
+            setSteps(p=>[...p,'Error en análisis...']);
             setPhase('done');
-            setResults({signal:{direction:'LONG',ticker:commodity==='GENERAL'?'COMMODITY':commodity,conviction:87,entryPrice:'—',stopLoss:'—',takeProfit:'—'},
-                summary:{whatHappened:'Agentic system analysis completed with available intelligence streams.',whyItMatters:'Run again with active API keys for full multi-model analysis.'}});
+            setError(e.message || 'Connection error');
         }
         setAnalyzing(false);
-        if(window.resetRoutes) setTimeout(window.resetRoutes,3000);
+        if(window.resetRoutes) setTimeout(window.resetRoutes,5000);
     };
 
     const handleReset=()=>{
-        setResults(null);setInput('');setPhase('idle');setSteps([]);
+        setResults(null);setInput('');setPhase('idle');setSteps([]);setError(null);
         if(window.resetRoutes) window.resetRoutes();
         if(window.meteoroGlobe) window.meteoroGlobe.pointOfView({lat:0,lng:-45,altitude:2.8},1500);
     };
 
-    const showPrompt=!analyzing&&!results;
+    const showPrompt=!analyzing&&!results&&!error;
+
+    // Parse signal direction from API response
+    const getDirection = (d) => {
+        if(!d) return 'HOLD';
+        const m = {'BUY':'LONG','SELL':'SHORT','LONG':'LONG','SHORT':'SHORT'};
+        return m[d.toUpperCase()] || 'HOLD';
+    };
+
+    const dirClass = (d) => {
+        const dir = getDirection(d);
+        if(dir==='LONG') return 'long';
+        if(dir==='SHORT') return 'short';
+        return 'hold';
+    };
 
     return(
         <>
-            {(analyzing||results)&&(
+            {(analyzing||results||error)&&(
                 <div className="analysis-panel glass" ref={panelRef}>
                     {analyzing&&(
                         <>
@@ -872,57 +931,94 @@ function App(){
                         </>
                     )}
 
+                    {error&&!results&&(
+                        <>
+                            <div style={{color:'#EF4444',fontSize:'12px',marginBottom:'12px',fontFamily:'Share Tech Mono,monospace'}}>
+                                ⚠ ANALYSIS ERROR
+                            </div>
+                            <div style={{color:'#708090',fontSize:'12px',lineHeight:'1.6',marginBottom:'16px'}}>
+                                {error}
+                            </div>
+                            <div style={{textAlign:'center'}}>
+                                <button className="reset-btn" onClick={handleReset}>Reintentar</button>
+                            </div>
+                        </>
+                    )}
+
                     {results&&(
                         <>
+                            {/* Signal Card */}
                             <div className="sig-card">
                                 <div>
-                                    <div className={`sig-dir ${(results.signal?.direction||results.direction||'LONG').toLowerCase()}`}>
-                                        ● {results.signal?.direction||results.direction||'LONG'}
+                                    <div className={`sig-dir ${dirClass(results.signal?.direction||results.signal?.action)}`}>
+                                        ● {getDirection(results.signal?.direction||results.signal?.action)}
                                     </div>
                                     <div className="sig-ticker">{results.signal?.ticker||results.commodity||'COMMODITY'}</div>
+                                    <div className="sig-split" style={{marginTop:'6px'}}>
+                                        <span className="bull">▲{results.swarm_results?.agents_bullish||0}</span>
+                                        <span className="bear">▼{results.swarm_results?.agents_bearish||0}</span>
+                                        <span className="neut">●{results.swarm_results?.agents_neutral||0}</span>
+                                    </div>
                                 </div>
                                 <div className="gauge-wrap">
-                                    <Gauge conviction={results.signal?.conviction||results.conviction||85}/>
+                                    <Gauge conviction={results.signal?.conviction||results.conviction||0}/>
                                     <div className="gauge-lbl">Conviction</div>
                                 </div>
-                                <div className="sig-metrics">
-                                    <div><span className="m-label">Entry</span><div className="m-value">{results.signal?.entryPrice||results.entry_price||'—'}</div></div>
-                                    <div><span className="m-label">Stop</span><div className="m-value">{results.signal?.stopLoss||results.stop_loss_pct||'—'}</div></div>
-                                    <div><span className="m-label">Target</span><div className="m-value">{results.signal?.takeProfit||results.take_profit_pct||'—'}</div></div>
-                                </div>
                             </div>
 
+                            {/* Narrative */}
                             <div className="narrative">
-                                {(()=>{
-                                    const r2=results.signal?.reasoning||results.reasoning||'';
-                                    const wh=results.summary?.whatHappened||results.summary?.what_happened||results.what_happened||'';
-                                    const wm=results.summary?.whyItMatters||results.summary?.why_it_matters||results.why_it_matters||'';
-                                    const ps=[];
-                                    if(wh&&wh!=='Analysis complete.')ps.push(wh);
-                                    if(r2)ps.push(r2);
-                                    if(wm&&wm!=='See evidence above for details.'&&wm!==r2)ps.push(wm);
-                                    if(ps.length===0){
-                                        const cards=results.evidence||results.evidence_cards||[];
-                                        const valid=cards.filter(c=>(c.finding||c.summary||c.analysis||c.reasoning)&&!(c.finding||c.summary||'').includes('unavailable'))
-                                            .map(c=>c.finding||c.summary||c.analysis||c.reasoning);
-                                        if(valid.length>0)ps.push(...valid);
-                                        else{
-                                            const b=cards.filter(c=>(c.signal||'').toUpperCase()==='LONG').length;
-                                            const s2=cards.filter(c=>(c.signal||'').toUpperCase()==='SHORT').length;
-                                            const n=cards.length-b-s2;
-                                            const dir=(results.signal?.direction||results.direction||'HOLD').toUpperCase();
-                                            const conv=results.signal?.conviction||results.conviction||0;
-                                            const tk=results.signal?.ticker||results.commodity||'commodity';
-                                            ps.push(`Agentic system analyzed ${tk}: ${cards.length} intelligence streams, ${b} bullish, ${s2} bearish, ${n} neutral. Consensus: ${dir} at ${conv}% conviction.`);
-                                        }
-                                    }
-                                    return ps.map((p,i)=><p key={i}>{p}</p>);
-                                })()}
+                                {results.consensus&&(
+                                    <div className="consensus">{results.consensus}</div>
+                                )}
+                                {results.what_happened&&(
+                                    <p>{results.what_happened}</p>
+                                )}
+                                {results.why_it_matters&&results.why_it_matters!==results.what_happened&&(
+                                    <p>{results.why_it_matters}</p>
+                                )}
+                                {!results.what_happened&&!results.why_it_matters&&results.signal?.reasoning&&(
+                                    <p>{results.signal.reasoning}</p>
+                                )}
                             </div>
 
+                            {/* Key Findings */}
+                            {(results.top_findings||results.evidence_cards||[]).length>0&&(
+                                <div className="findings">
+                                    {(results.top_findings||results.evidence_cards||[]).slice(0,4).map((f,i)=>{
+                                        const sig=(f.signal||'HOLD').toUpperCase();
+                                        const badgeClass=sig==='BUY'?'buy':sig==='SELL'?'sell':'hold';
+                                        const text=f.finding||f.summary||f.key_finding||f.key||'';
+                                        if(!text||text.length<5)return null;
+                                        return(
+                                            <div key={i} className="finding-item">
+                                                <div className="finding-head">
+                                                    <span className="finding-agent">{f.agent||f.source||'Intel'}</span>
+                                                    <span className={`finding-badge ${badgeClass}`}>
+                                                        {sig} {f.confidence?f.confidence+'%':''}
+                                                    </span>
+                                                </div>
+                                                <div className="finding-text">{text.slice(0,180)}</div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            {/* Meta */}
                             <div className="a-meta">
-                                <div className="a-meta-item">{(results.evidence||results.evidence_cards||[]).length} <span>intelligence streams</span></div>
-                                {results.pipeline_latency_ms&&<div className="a-meta-item">{(results.pipeline_latency_ms/1000).toFixed(1)}s <span>latency</span></div>}
+                                <div className="a-meta-item">
+                                    {(results.evidence_cards||[]).length||results.swarm_results?.total_agents||0} <span>capabilities</span>
+                                </div>
+                                {results.pipeline_latency_ms&&(
+                                    <div className="a-meta-item">{(results.pipeline_latency_ms/1000).toFixed(1)}s <span>latency</span></div>
+                                )}
+                                {results.cost_usd!==undefined&&results.cost_usd>0&&(
+                                    <div className="a-meta-item">${results.cost_usd.toFixed(4)} <span>cost</span></div>
+                                )}
+                                {results.risk_assessment&&(
+                                    <div className="a-meta-item">{results.risk_assessment.conviction_level} <span>risk</span></div>
+                                )}
                             </div>
 
                             <div style={{textAlign:'center'}}>
