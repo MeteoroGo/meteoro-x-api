@@ -20,19 +20,32 @@ logger = logging.getLogger("meteoro.market_data")
 # ═══════════════════════════════════════════════════════════════
 
 COMMODITY_TICKERS = {
+    # Energy
     "OIL": {"ticker": "CL=F", "name": "WTI Crude Oil", "unit": "USD/bbl"},
     "BRENT": {"ticker": "BZ=F", "name": "Brent Crude", "unit": "USD/bbl"},
     "NATURAL_GAS": {"ticker": "NG=F", "name": "Natural Gas", "unit": "USD/MMBtu"},
+    # Precious Metals
     "GOLD": {"ticker": "GC=F", "name": "Gold", "unit": "USD/oz"},
     "SILVER": {"ticker": "SI=F", "name": "Silver", "unit": "USD/oz"},
+    "PLATINUM": {"ticker": "PL=F", "name": "Platinum", "unit": "USD/oz"},
+    "PALLADIUM": {"ticker": "PA=F", "name": "Palladium", "unit": "USD/oz"},
+    # Base & Industrial Metals
     "COPPER": {"ticker": "HG=F", "name": "Copper", "unit": "USD/lb"},
+    "COAL": {"ticker": "MTF=F", "name": "Coal (Newcastle)", "unit": "USD/ton"},
+    "NICKEL": {"ticker": "NI=F", "name": "Nickel", "unit": "USD/ton"},
+    "IRON": {"ticker": "GWM.AX", "name": "Iron Ore proxy", "unit": "AUD"},
+    "LITHIUM": {"ticker": "LTHM", "name": "Lithium proxy (Livent)", "unit": "USD"},
+    "COBALT": {"ticker": "GLNCY", "name": "Cobalt proxy (Glencore)", "unit": "USD"},
+    # Agriculture
     "COFFEE": {"ticker": "KC=F", "name": "Coffee Arabica", "unit": "cents/lb"},
     "WHEAT": {"ticker": "ZW=F", "name": "Wheat", "unit": "cents/bu"},
     "CORN": {"ticker": "ZC=F", "name": "Corn", "unit": "cents/bu"},
     "SOY": {"ticker": "ZS=F", "name": "Soybeans", "unit": "cents/bu"},
-    "COAL": {"ticker": "MTF=F", "name": "Coal (Newcastle)", "unit": "USD/ton"},
-    "LITHIUM": {"ticker": "LTHM", "name": "Lithium proxy", "unit": "USD"},
-    "NICKEL": {"ticker": "NI=F", "name": "Nickel", "unit": "USD/ton"},
+    "SUGAR": {"ticker": "SB=F", "name": "Sugar #11", "unit": "cents/lb"},
+    # Shipping
+    "SHIPPING": {"ticker": "BDRY", "name": "Baltic Dry Index ETF", "unit": "USD"},
+    # General (use S&P GSCI as proxy)
+    "GENERAL": {"ticker": "^GSPC", "name": "S&P 500", "unit": "USD"},
 }
 
 MACRO_TICKERS = {
@@ -312,17 +325,24 @@ async def fetch_gdelt_events(commodity: str) -> Dict[str, Any]:
 
     keyword_map = {
         "OIL": "oil+crude+petroleum+OPEC",
-        "COFFEE": "coffee+arabica+robusta+harvest",
-        "GOLD": "gold+bullion+central+bank",
-        "COPPER": "copper+mining+Chile+Peru",
-        "COAL": "coal+energy+Cerrejon+Newcastle",
+        "COFFEE": "coffee+arabica+robusta+harvest+Colombia+Brazil",
+        "GOLD": "gold+bullion+central+bank+reserve",
+        "COPPER": "copper+mining+Chile+Peru+Escondida",
+        "COAL": "coal+energy+Cerrejon+Newcastle+thermal",
         "WHEAT": "wheat+grain+export+Russia+Ukraine",
-        "CORN": "corn+maize+ethanol",
-        "SOY": "soybean+Brazil+Argentina+harvest",
-        "NATURAL_GAS": "natural+gas+LNG+pipeline",
-        "SILVER": "silver+precious+metal",
-        "LITHIUM": "lithium+battery+EV+mining",
-        "NICKEL": "nickel+stainless+steel+Indonesia",
+        "CORN": "corn+maize+ethanol+biofuel",
+        "SOY": "soybean+Brazil+Argentina+harvest+CBOT",
+        "NATURAL_GAS": "natural+gas+LNG+pipeline+Europe",
+        "SILVER": "silver+precious+metal+solar",
+        "LITHIUM": "lithium+battery+EV+mining+Chile+Australia",
+        "NICKEL": "nickel+stainless+steel+Indonesia+EV",
+        "IRON": "iron+ore+mining+Australia+Brazil+Vale+BHP",
+        "COBALT": "cobalt+Congo+EV+battery+mining",
+        "PLATINUM": "platinum+catalytic+converter+South+Africa",
+        "PALLADIUM": "palladium+catalytic+Russia+automotive",
+        "SUGAR": "sugar+ethanol+Brazil+India+harvest",
+        "SHIPPING": "shipping+freight+Baltic+dry+bulk+container",
+        "GENERAL": "commodities+trading+markets+global",
     }
 
     query = keyword_map.get(commodity.upper(), commodity)

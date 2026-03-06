@@ -667,7 +667,10 @@
             NICKEL:{lat:60,lng:80,altitude:2.5}, COBALT:{lat:-5,lng:25,altitude:2.0},
             GENERAL:{lat:10,lng:0,altitude:3.0}, SHIPPING:{lat:20,lng:60,altitude:3.0},
             COFFEE:{lat:0,lng:-55,altitude:2.0}, WHEAT:{lat:45,lng:30,altitude:2.5},
-            LITHIUM:{lat:-25,lng:-68,altitude:1.8},
+            LITHIUM:{lat:-25,lng:-68,altitude:1.8}, SILVER:{lat:20,lng:-100,altitude:2.2},
+            SUGAR:{lat:-10,lng:-50,altitude:2.2}, SOY:{lat:-20,lng:-55,altitude:2.0},
+            CORN:{lat:40,lng:-95,altitude:2.2}, PLATINUM:{lat:-28,lng:28,altitude:2.0},
+            PALLADIUM:{lat:55,lng:40,altitude:2.5},
         };
         var loc = locs[commodity] || locs.GENERAL;
         world.pointOfView(loc, 2000);
@@ -776,12 +779,26 @@ const getApiBase = () => {
 
 function detectCommodity(q) {
     const l=q.toLowerCase();
-    const kw={coal:'COAL',carbon:'COAL','carbón':'COAL',cerrejon:'COAL','cerrejón':'COAL',
-        copper:'COPPER',cobre:'COPPER',iron:'IRON',hierro:'IRON',gold:'GOLD',oro:'GOLD',
-        oil:'OIL',petroleo:'OIL',crudo:'OIL',brent:'OIL',wti:'OIL',
-        gas:'NATURAL_GAS',nickel:'NICKEL',niquel:'NICKEL',cobalt:'COBALT',cobalto:'COBALT',
-        lithium:'LITHIUM',litio:'LITHIUM',coffee:'COFFEE',cafe:'COFFEE',
-        wheat:'WHEAT',trigo:'WHEAT',baltic:'SHIPPING',soy:'GENERAL',corn:'GENERAL'};
+    const kw={
+        coal:'COAL',carbon:'COAL','carbón':'COAL',cerrejon:'COAL','cerrejón':'COAL',newcastle:'COAL',
+        copper:'COPPER',cobre:'COPPER',escondida:'COPPER','las bambas':'COPPER',antamina:'COPPER',codelco:'COPPER',
+        iron:'IRON',hierro:'IRON',vale:'IRON',pilbara:'IRON',
+        gold:'GOLD',oro:'GOLD',bullion:'GOLD',
+        silver:'SILVER',plata:'SILVER',
+        oil:'OIL',petroleo:'OIL','petróleo':'OIL',crudo:'OIL',brent:'OIL',wti:'OIL',opec:'OIL',
+        gas:'NATURAL_GAS',lng:'NATURAL_GAS',
+        nickel:'NICKEL',niquel:'NICKEL','níquel':'NICKEL',norilsk:'NICKEL',
+        cobalt:'COBALT',cobalto:'COBALT',
+        lithium:'LITHIUM',litio:'LITHIUM',sqm:'LITHIUM',
+        coffee:'COFFEE',cafe:'COFFEE','café':'COFFEE',arabica:'COFFEE',
+        wheat:'WHEAT',trigo:'WHEAT',
+        soy:'SOY',soja:'SOY',
+        corn:'CORN',maiz:'CORN','maíz':'CORN',
+        sugar:'SUGAR',azucar:'SUGAR','azúcar':'SUGAR',
+        baltic:'SHIPPING',freight:'SHIPPING',flete:'SHIPPING',
+        platinum:'PLATINUM',platino:'PLATINUM',
+        palladium:'PALLADIUM',paladio:'PALLADIUM',
+    };
     for(const[k,v]of Object.entries(kw)){if(l.includes(k))return v}
     return 'GENERAL';
 }

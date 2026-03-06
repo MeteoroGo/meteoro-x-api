@@ -97,19 +97,36 @@ def get_swarm():
 # ═══════════════════════════════════════════════════════════════
 
 COMMODITY_KEYWORDS = {
+    # Oil & Energy
     "oil": "OIL", "petroleo": "OIL", "petróleo": "OIL", "crude": "OIL",
-    "wti": "OIL", "brent": "OIL", "crudo": "OIL",
+    "wti": "OIL", "brent": "OIL", "crudo": "OIL", "opec": "OIL",
     "gas": "NATURAL_GAS", "natural gas": "NATURAL_GAS", "gas natural": "NATURAL_GAS",
-    "gold": "GOLD", "oro": "GOLD",
+    "lng": "NATURAL_GAS",
+    # Precious Metals
+    "gold": "GOLD", "oro": "GOLD", "bullion": "GOLD",
     "silver": "SILVER", "plata": "SILVER",
-    "copper": "COPPER", "cobre": "COPPER",
+    # Base Metals
+    "copper": "COPPER", "cobre": "COPPER", "escondida": "COPPER",
+    "las bambas": "COPPER", "antamina": "COPPER", "codelco": "COPPER",
     "coal": "COAL", "carbon": "COAL", "carbón": "COAL", "cerrejon": "COAL",
-    "coffee": "COFFEE", "cafe": "COFFEE", "café": "COFFEE",
+    "cerrejón": "COAL", "newcastle": "COAL",
+    "nickel": "NICKEL", "niquel": "NICKEL", "níquel": "NICKEL", "norilsk": "NICKEL",
+    "lithium": "LITHIUM", "litio": "LITHIUM", "sqm": "LITHIUM",
+    "iron": "IRON", "hierro": "IRON", "vale": "IRON", "pilbara": "IRON",
+    # Agriculture
+    "coffee": "COFFEE", "cafe": "COFFEE", "café": "COFFEE", "arabica": "COFFEE",
     "wheat": "WHEAT", "trigo": "WHEAT",
     "corn": "CORN", "maiz": "CORN", "maíz": "CORN",
     "soy": "SOY", "soja": "SOY", "soybean": "SOY",
-    "lithium": "LITHIUM", "litio": "LITHIUM",
-    "nickel": "NICKEL", "niquel": "NICKEL", "níquel": "NICKEL",
+    "sugar": "SUGAR", "azucar": "SUGAR", "azúcar": "SUGAR",
+    # Strategic / EV Metals
+    "cobalt": "COBALT", "cobalto": "COBALT",
+    "platinum": "PLATINUM", "platino": "PLATINUM",
+    "palladium": "PALLADIUM", "paladio": "PALLADIUM",
+    # Shipping
+    "baltic": "SHIPPING", "freight": "SHIPPING", "flete": "SHIPPING",
+    # General market queries
+    "mercados": "GENERAL", "markets": "GENERAL", "commodities": "GENERAL",
 }
 
 
