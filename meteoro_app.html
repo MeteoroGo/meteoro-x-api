@@ -638,6 +638,14 @@
         '▲ RED SEA: Missile launch — 12 bulkers diverted',
         '▲ NASA FIRMS: 3 thermal anomalies Hunter Valley',
         '▲ BDI +4.2% — dry bulk demand accelerating',
+        '▲ KOLWEZI: Cobalt output +8% — EV demand signal',
+        '⚠ MALACCA: LNG tanker grounded — traffic diverted 12h',
+        '▲ GOLD: $2,340/oz — geopolitical premium widening',
+        '⚠ BLACK SEA: Grain corridor status — 4 cargo ships delayed',
+        '▲ LITHIUM: SQM Q1 surplus — Atacama brine levels +12%',
+        '▲ ANTAMINA: Cu-Zn concentrate — 28Kt loaded Callao',
+        '⚠ SUEZ: Queue time +6h — 23 vessels waiting transit',
+        '▲ ICE COFFEE: Arabica +5.1% — frost alert Minas Gerais',
     ];
 
     // Build points
@@ -892,6 +900,10 @@ const getApiBase = () => {
     if (window.location.hostname==='localhost'||window.location.hostname==='127.0.0.1') return 'http://localhost:8000';
     return window.location.origin;
 };
+
+// Pre-warm: silent health ping on page load to wake up server + pre-init swarm
+fetch(`${getApiBase()}/api/health`).catch(()=>{});
+
 
 function detectCommodity(q) {
     const l=q.toLowerCase();

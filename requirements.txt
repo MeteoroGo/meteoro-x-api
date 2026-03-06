@@ -1,5 +1,5 @@
-# METEORO X v7.0 — Dependencies
-# Agent Swarm | 12 Super Agents | 4 Cerebros | Commodity Trading
+# METEORO X v9.3 — Dependencies
+# Autonomous Intelligence System | Multi-Model Router | Real Data
 
 # Core AI
 anthropic>=0.40.0
