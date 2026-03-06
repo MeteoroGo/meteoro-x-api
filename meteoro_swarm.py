@@ -477,7 +477,12 @@ MARKET DATA:
             all_results=all_results,
             total_latency_ms=total_latency,
             cost_usd=total_cost,
-            metadata={"session_id": session_id, "has_real_data": HAS_MARKET_DATA},
+            metadata={
+                "session_id": session_id,
+                "has_real_data": HAS_MARKET_DATA,
+                "market_data": market_data,
+                "execution_mode": "parallel" if multi_provider else "sequential",
+            },
         )
 
     async def _run_llm_agent(

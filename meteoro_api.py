@@ -146,10 +146,36 @@ def _signal_to_direction(signal_action: str) -> str:
     return m.get(signal_action.upper(), "HOLD")
 
 
-def _build_narrative(result, commodity: str) -> dict:
+# Capability display names — maps internal agent names to clean labels
+CAPABILITY_NAMES = {
+    "Satellite Recon": {"en": "Satellite Intelligence", "es": "Inteligencia Satelital"},
+    "Maritime Intel": {"en": "Maritime Tracking", "es": "Rastreo Marítimo"},
+    "Supply Chain Mapper": {"en": "Supply Chain Analysis", "es": "Cadena de Suministro"},
+    "LatAm OSINT": {"en": "Regional Intelligence", "es": "Inteligencia Regional"},
+    "China Demand Oracle": {"en": "Demand Analysis", "es": "Análisis de Demanda"},
+    "Geopolitical Risk": {"en": "Geopolitical Risk", "es": "Riesgo Geopolítico"},
+    "Macro Regime": {"en": "Macro Analysis", "es": "Análisis Macro"},
+    "Quant Alpha": {"en": "Quantitative Analysis", "es": "Análisis Cuantitativo"},
+    "Sentiment Flow": {"en": "Market Sentiment", "es": "Sentimiento de Mercado"},
+    "Risk Guardian": {"en": "Risk Management", "es": "Gestión de Riesgo"},
+    "Execution Engine": {"en": "Execution Strategy", "es": "Estrategia de Ejecución"},
+    "Counterintelligence": {"en": "Validation", "es": "Validación"},
+}
+
+
+def _get_capability_name(agent_name: str, lang: str = "es") -> str:
+    """Map internal agent name to a clean capability display name."""
+    for key, names in CAPABILITY_NAMES.items():
+        if key.lower() in agent_name.lower():
+            return names.get(lang, names.get("en", agent_name))
+    return agent_name
+
+
+def _build_narrative(result, commodity: str, language: str = "es") -> dict:
     """
     Build a rich intelligence narrative from swarm results.
     Synthesizes agent findings into a compelling human-readable brief.
+    Supports ES and EN locales.
     """
     bullish = result.agents_bullish
     bearish = result.agents_bearish
@@ -157,6 +183,7 @@ def _build_narrative(result, commodity: str) -> dict:
     total = bullish + bearish + neutral
     direction = _signal_to_direction(result.final_signal.value)
     conviction = result.conviction
+    lang = language.lower()[:2] if language else "es"
 
     # Collect key findings from agents (filter out errors and empty reasoning)
     findings = []
@@ -165,7 +192,7 @@ def _build_narrative(result, commodity: str) -> dict:
             continue
         if r.confidence >= 40:
             findings.append({
-                "agent": r.agent_name,
+                "agent": _get_capability_name(r.agent_name, lang),
                 "signal": r.signal.value,
                 "confidence": r.confidence,
                 "finding": r.reasoning[:300],
@@ -175,13 +202,20 @@ def _build_narrative(result, commodity: str) -> dict:
     # Sort by confidence descending
     findings.sort(key=lambda x: x["confidence"], reverse=True)
 
-    # Build what_happened
+    # Build what_happened (locale-aware)
     active_agents = sum(1 for r in result.all_results if not r.error and r.confidence > 0)
-    what_happened = (
-        f"Autonomous intelligence system deployed {active_agents} specialized capabilities "
-        f"across satellite reconnaissance, maritime tracking, supply chain analysis, "
-        f"geopolitical risk assessment, and quantitative modeling to analyze {commodity}."
-    )
+    if lang == "es":
+        what_happened = (
+            f"Sistema de inteligencia autónoma desplegó {active_agents} capacidades especializadas: "
+            f"reconocimiento satelital, rastreo marítimo, análisis de cadena de suministro, "
+            f"evaluación de riesgo geopolítico y modelado cuantitativo para analizar {commodity}."
+        )
+    else:
+        what_happened = (
+            f"Autonomous intelligence system deployed {active_agents} specialized capabilities "
+            f"across satellite reconnaissance, maritime tracking, supply chain analysis, "
+            f"geopolitical risk assessment, and quantitative modeling to analyze {commodity}."
+        )
 
     # Build why_it_matters from top findings
     if findings:
@@ -192,18 +226,29 @@ def _build_narrative(result, commodity: str) -> dict:
     else:
         why_it_matters = result.reasoning
 
-    # Build consensus description
-    if conviction >= 80:
-        strength = "High-conviction"
-    elif conviction >= 60:
-        strength = "Moderate-conviction"
+    # Build consensus description (locale-aware)
+    if lang == "es":
+        if conviction >= 80:
+            strength = "Alta convicción"
+        elif conviction >= 60:
+            strength = "Convicción moderada"
+        else:
+            strength = "Baja convicción"
+        consensus_text = (
+            f"{strength} — señal {direction}: {bullish} alcistas, {bearish} bajistas, "
+            f"{neutral} neutrales de {total} fuentes de inteligencia."
+        )
     else:
-        strength = "Low-conviction"
-
-    consensus_text = (
-        f"{strength} {direction} signal: {bullish} bullish, {bearish} bearish, "
-        f"{neutral} neutral out of {total} intelligence streams."
-    )
+        if conviction >= 80:
+            strength = "High-conviction"
+        elif conviction >= 60:
+            strength = "Moderate-conviction"
+        else:
+            strength = "Low-conviction"
+        consensus_text = (
+            f"{strength} {direction} signal: {bullish} bullish, {bearish} bearish, "
+            f"{neutral} neutral out of {total} intelligence streams."
+        )
 
     return {
         "what_happened": what_happened,
@@ -297,9 +342,25 @@ async def analyze_endpoint(request: AnalyzeRequest):
             result = await swarm.analyze(commodity, context={"command": request.command})
             latency_ms = int((time.time() - start) * 1000)
 
-            # Build rich narrative
-            narrative = _build_narrative(result, commodity)
+            # Build rich narrative (locale-aware)
+            narrative = _build_narrative(result, commodity, language=request.language)
             direction = narrative["direction"]
+
+            # Map agent names to capability display names in evidence cards
+            lang = (request.language or "es")[:2].lower()
+
+            # Extract price data from swarm's market data if available
+            price_data = {}
+            if hasattr(result, 'metadata') and isinstance(result.metadata, dict):
+                md = result.metadata.get("market_data", {})
+                cd = md.get("commodity", {}) if isinstance(md, dict) else {}
+                if isinstance(cd, dict) and "price" in cd:
+                    price_data = {
+                        "price": cd.get("price"),
+                        "change_pct": cd.get("change_pct", 0),
+                        "rsi_14": cd.get("rsi_14"),
+                        "volatility": cd.get("volatility_ann_pct"),
+                    }
 
             # Build response — frontend-compatible structure
             response = {
@@ -308,6 +369,7 @@ async def analyze_endpoint(request: AnalyzeRequest):
                 "command": request.command,
                 "commodity": commodity,
                 "system": "swarm_v9",
+                "price_data": price_data,
                 "signal": {
                     "action": result.final_signal.value,
                     "direction": direction,
@@ -327,7 +389,7 @@ async def analyze_endpoint(request: AnalyzeRequest):
                 "consensus": narrative["consensus"],
                 "evidence_cards": [
                     {
-                        "source": r.agent_name,
+                        "source": _get_capability_name(r.agent_name, lang),
                         "signal": r.signal.value,
                         "confidence": r.confidence,
                         "summary": r.reasoning[:200],
@@ -337,7 +399,7 @@ async def analyze_endpoint(request: AnalyzeRequest):
                 ],
                 "top_findings": narrative["top_findings"],
                 "causal_chain": [
-                    f"[{r.agent_name}] {r.signal.value} ({r.confidence}%): {r.reasoning[:80]}"
+                    f"[{_get_capability_name(r.agent_name, lang)}] {r.signal.value} ({r.confidence}%): {r.reasoning[:80]}"
                     for r in result.all_results if not r.error and r.confidence > 0
                 ],
                 "risk_assessment": {
@@ -527,6 +589,7 @@ async def websocket_analyze(websocket: WebSocket):
                 continue
 
             commodity = detect_commodity(command)
+            ws_lang = data.get("language", "es")[:2].lower()
             start = time.time()
 
             await websocket.send_json({
@@ -542,8 +605,8 @@ async def websocket_analyze(websocket: WebSocket):
                     result = await swarm.analyze(commodity, context={"command": command})
                     latency_ms = int((time.time() - start) * 1000)
 
-                    # Build rich narrative (same as REST endpoint)
-                    narrative = _build_narrative(result, commodity)
+                    # Build rich narrative (locale-aware)
+                    narrative = _build_narrative(result, commodity, language=ws_lang)
                     direction = narrative["direction"]
 
                     await websocket.send_json({
@@ -571,7 +634,7 @@ async def websocket_analyze(websocket: WebSocket):
                         "consensus": narrative["consensus"],
                         "evidence_cards": [
                             {
-                                "source": r.agent_name,
+                                "source": _get_capability_name(r.agent_name, ws_lang),
                                 "signal": r.signal.value,
                                 "confidence": r.confidence,
                                 "summary": r.reasoning[:200],
