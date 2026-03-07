@@ -1,18 +1,23 @@
 """
-METEORO X v9.4 — API Server
+METEORO X v11 — API Server
 ==============================
 FastAPI server powering the Meteoro Autonomous Intelligence System.
 
 Endpoints:
-  POST /api/analyze       - Full agentic system analysis
-  POST /api/swarm/analyze - Direct swarm endpoint
-  GET  /api/health        - Server heartbeat
-  GET  /api/macro         - Current macro snapshot
-  GET  /api/signals       - Recent signals history
-  GET  /api/swarm/config  - Swarm configuration info
-  GET  /api/diagnostics   - Provider status
-  GET  /api/ping          - Lightweight keep-alive endpoint
-  WS   /ws/analyze        - Real-time streaming analysis
+  POST /api/analyze         - Full agentic system analysis
+  POST /api/swarm/analyze   - Direct swarm endpoint
+  GET  /api/health          - Server heartbeat
+  GET  /api/macro           - Current macro snapshot
+  GET  /api/signals         - Recent signals history
+  GET  /api/swarm/config    - Swarm configuration info
+  GET  /api/diagnostics     - Provider status
+  GET  /api/knowledge/exchanges    - Global commodity exchanges
+  GET  /api/knowledge/traders      - Major commodity traders
+  GET  /api/knowledge/mines        - Major mines worldwide
+  GET  /api/knowledge/plants       - Refineries & smelters
+  GET  /api/knowledge/{commodity}  - Full industry context for a commodity
+  GET  /api/ping            - Lightweight keep-alive endpoint
+  WS   /ws/analyze          - Real-time streaming analysis
 """
 
 import asyncio
@@ -60,14 +65,27 @@ try:
 except Exception:
     HAS_BENCHMARK = False
 
+# Industry Knowledge Graph
+try:
+    from data_sources.industry_knowledge import (
+        get_all_exchanges_summary, get_all_traders_summary,
+        get_all_mines_summary, get_all_plants_summary,
+        get_commodity_context, build_agent_context_prompt,
+        EXCHANGES, MAJOR_TRADERS, MAJOR_MINES, SUPPLY_CHAINS,
+    )
+    HAS_KNOWLEDGE = True
+except Exception as e:
+    HAS_KNOWLEDGE = False
+    print(f"[WARN] Industry knowledge import failed: {e}")
+
 # ═══════════════════════════════════════════════════════════════
 # APP SETUP
 # ═══════════════════════════════════════════════════════════════
 
 app = FastAPI(
     title="Meteoro X — Autonomous Intelligence",
-    description="AI-Native Autonomous Commodity Intelligence | Agentic System",
-    version="9.4.0",
+    description="AI-Native Autonomous Commodity Intelligence | Agentic System | Industry Knowledge Graph",
+    version="11.0.0",
 )
 
 app.add_middleware(
@@ -515,12 +533,24 @@ async def health():
     except Exception:
         active_models = 0
         cost = {}
+    # Knowledge graph stats
+    kg_stats = {}
+    if HAS_KNOWLEDGE:
+        kg_stats = {
+            "exchanges": len(EXCHANGES),
+            "traders": len(MAJOR_TRADERS),
+            "mines": len(MAJOR_MINES),
+            "supply_chains": len(SUPPLY_CHAINS),
+        }
+
     return {
         "status": "operational",
         "system": "Meteoro X Autonomous Intelligence",
-        "version": "9.3.0",
+        "version": "11.0.0",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "swarm_active": HAS_SWARM,
+        "knowledge_graph": HAS_KNOWLEDGE,
+        "knowledge_stats": kg_stats,
         "capabilities": {
             "satellite_recon": True,
             "maritime_intel": True,
@@ -528,6 +558,7 @@ async def health():
             "geopolitical_risk": True,
             "quantitative_analysis": True,
             "risk_management": True,
+            "industry_knowledge": HAS_KNOWLEDGE,
         },
         "active_providers": active_models,
         "data_sources": 8,
@@ -591,7 +622,7 @@ async def analyze_endpoint(request: AnalyzeRequest):
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "command": request.command,
                 "commodity": commodity,
-                "system": "swarm_v9",
+                "system": "swarm_v11",
                 "price_data": price_data,
                 "signal": {
                     "action": result.final_signal.value,
@@ -634,6 +665,10 @@ async def analyze_endpoint(request: AnalyzeRequest):
                 "execution_mode": result.metadata.get("execution_mode", "sequential") if hasattr(result, 'metadata') and isinstance(result.metadata, dict) else "sequential",
                 "providers_used": len(set(r.evidence_pack.get("model", "unknown") for r in result.all_results if not r.error)),
                 "intelligence_brief": intel_brief,
+                "industry_context": {
+                    "available": HAS_KNOWLEDGE,
+                    "prompt_injected": HAS_KNOWLEDGE,
+                } if HAS_KNOWLEDGE else {"available": False},
                 "pack_hash": f"sha256:{hash(result.reasoning) & 0xFFFFFFFF:08x}",
             }
 
@@ -644,7 +679,7 @@ async def analyze_endpoint(request: AnalyzeRequest):
                 "commodity": commodity,
                 "signal": response["signal"],
                 "latency_ms": latency_ms,
-                "system": "swarm_v9",
+                "system": "swarm_v11",
             })
 
             return response
@@ -785,7 +820,7 @@ async def diagnostics():
 
         return {
             "status": "ok",
-            "version": "9.3.0",
+            "version": "11.0.0",
             "providers": provider_status,
             "active_models": list(models),
             "active_providers": list(providers),
@@ -904,6 +939,75 @@ async def websocket_analyze(websocket: WebSocket):
 
 
 # ═══════════════════════════════════════════════════════════════
+# KNOWLEDGE GRAPH ENDPOINTS
+# ═══════════════════════════════════════════════════════════════
+
+@app.get("/api/knowledge/exchanges")
+async def knowledge_exchanges():
+    """All global commodity exchanges with geographic data."""
+    if not HAS_KNOWLEDGE:
+        raise HTTPException(status_code=503, detail="Knowledge graph not available")
+    return {
+        "exchanges": get_all_exchanges_summary(),
+        "total": len(EXCHANGES),
+        "source": "meteoro_knowledge_graph_v11",
+    }
+
+
+@app.get("/api/knowledge/traders")
+async def knowledge_traders():
+    """Major global commodity traders with revenue, commodities, and HQ locations."""
+    if not HAS_KNOWLEDGE:
+        raise HTTPException(status_code=503, detail="Knowledge graph not available")
+    return {
+        "traders": get_all_traders_summary(),
+        "total": len(MAJOR_TRADERS),
+        "source": "meteoro_knowledge_graph_v11",
+    }
+
+
+@app.get("/api/knowledge/mines")
+async def knowledge_mines():
+    """Major mines worldwide with production data and geographic coordinates."""
+    if not HAS_KNOWLEDGE:
+        raise HTTPException(status_code=503, detail="Knowledge graph not available")
+    return {
+        "mines": get_all_mines_summary(),
+        "total": len(MAJOR_MINES),
+        "source": "meteoro_knowledge_graph_v11",
+    }
+
+
+@app.get("/api/knowledge/plants")
+async def knowledge_plants():
+    """Refineries and smelters with capacity and geographic data."""
+    if not HAS_KNOWLEDGE:
+        raise HTTPException(status_code=503, detail="Knowledge graph not available")
+    return {
+        "plants": get_all_plants_summary(),
+        "source": "meteoro_knowledge_graph_v11",
+    }
+
+
+@app.get("/api/knowledge/{commodity}")
+async def knowledge_commodity(commodity: str):
+    """Full industry context for a specific commodity — supply chain, mines, traders, exchanges."""
+    if not HAS_KNOWLEDGE:
+        raise HTTPException(status_code=503, detail="Knowledge graph not available")
+
+    detected = detect_commodity(commodity)
+    ctx = get_commodity_context(detected.lower())
+
+    return {
+        "commodity": detected,
+        "query": commodity,
+        "context": ctx,
+        "agent_prompt": build_agent_context_prompt(detected.lower()),
+        "source": "meteoro_knowledge_graph_v11",
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
 # STARTUP
 # ═══════════════════════════════════════════════════════════════
 
@@ -945,8 +1049,8 @@ async def _keep_alive_loop():
 @app.on_event("startup")
 async def startup():
     print("=" * 60)
-    print("  METEORO X v9.3 — Autonomous Intelligence API")
-    print("  Agentic System | Multi-Model Router | Real Data")
+    print("  METEORO X v11 — Autonomous Intelligence API")
+    print("  Agentic System | Multi-Model | Knowledge Graph")
     print(f"  Swarm Available: {HAS_SWARM}")
     print(f"  Legacy Pipeline: {HAS_LEGACY}")
     # Log active providers

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-METEORO X v7.2 — MULTI-MODEL ROUTER + RATE LIMITER
+METEORO X v11 — MULTI-MODEL ROUTER + RATE LIMITER
 Multi-Model Router | Dynamic Agent Routing | Automatic Provider Detection | Retry + Backoff
 
 ARCHITECTURE:
@@ -151,11 +151,11 @@ AGENT_MODEL_MAP_IDEAL = {
     "maritime_intel":        "claude-haiku",
     "supply_chain_mapper":   "deepseek-v3",
     "latam_osint":           "claude-haiku",
-    "china_demand_oracle":   "deepseek-v3",
+    "china_demand_oracle":   "kimi-v1",       # Kimi for China/Asia intelligence
     "geopolitical_risk":     "gemini-flash",
     "macro_regime":          "deepseek-v3",
     "quant_alpha":           "deepseek-v3",
-    "sentiment_flow":        "claude-haiku",
+    "sentiment_flow":        "kimi-v1",       # Kimi for Asian sentiment
     "risk_guardian":         "claude-haiku",
     "execution_engine":      "claude-haiku",
     "counterintelligence":   "deepseek-v3",

@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """
 ╔══════════════════════════════════════════════════════════════════╗
-║  METEORO SWARM v9.4 — Autonomous Commodity Intelligence          ║
-║  Agentic System | Multi-Model Router | Real Market Data          ║
+║  METEORO SWARM v11 — Autonomous Commodity Intelligence            ║
+║  Agentic System | Multi-Model Router | Industry Knowledge Graph   ║
 ║                                                                    ║
 ║  FLOW:                                                            ║
 ║    1. Fetch REAL market data (yfinance, GDELT, macro)            ║
-║    2. Route agents to LLMs (Claude/DeepSeek/Gemini)              ║
-║    3. Parse LLM response → Signal + Confidence + Evidence        ║
-║    4. Parallel batch execution (Alpha/Bravo/Charlie teams)       ║
-║    5. Consensus mechanism → Final trade signal                    ║
+║    2. Inject INDUSTRY KNOWLEDGE (mines, smelters, traders, exchanges)
+║    3. Route agents to LLMs (Claude/DeepSeek/Kimi/Gemini)        ║
+║    4. Parse LLM response → Signal + Confidence + Evidence        ║
+║    5. Parallel batch execution (Alpha/Bravo/Charlie teams)       ║
+║    6. Consensus mechanism → Final trade signal                    ║
 ║                                                                    ║
-║  Each agent has a specialized prompt + gets real data.            ║
+║  Each agent has specialized prompt + real data + industry context ║
 ║  LLMs do the actual thinking. No hardcoded results.              ║
 ╚══════════════════════════════════════════════════════════════════╝
 """
@@ -48,6 +49,14 @@ try:
 except Exception as e:
     HAS_LLM = False
     print(f"[WARN] multi_model_router import failed: {e}")
+
+# Industry Knowledge Graph
+try:
+    from data_sources.industry_knowledge import build_agent_context_prompt, get_commodity_context
+    HAS_KNOWLEDGE = True
+except Exception as e:
+    HAS_KNOWLEDGE = False
+    print(f"[WARN] industry_knowledge import failed: {e}")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -347,9 +356,24 @@ class MeteorSwarm:
         session_id = str(uuid.uuid4().hex[:8])
 
         print(f"\n{'='*70}")
-        print(f"METEORO SWARM v9.5 — AUTONOMOUS INTELLIGENCE — {session_id}")
+        print(f"METEORO SWARM v11 — AUTONOMOUS INTELLIGENCE — {session_id}")
         print(f"Commodity: {commodity}")
         print(f"{'='*70}\n")
+
+        # ─── STEP 0: INDUSTRY KNOWLEDGE CONTEXT ──────────────────
+        industry_context = ""
+        if HAS_KNOWLEDGE:
+            try:
+                industry_context = build_agent_context_prompt(commodity)
+                if industry_context and "No specific" not in industry_context:
+                    print(f"[KNOWLEDGE] Industry context loaded for {commodity}")
+                else:
+                    print(f"[KNOWLEDGE] No specific industry context for {commodity}")
+            except Exception as ke:
+                print(f"[KNOWLEDGE] Error building context: {ke}")
+
+        # Store industry context for agents to access
+        self._industry_context = industry_context
 
         # ─── STEP 1: FETCH REAL MARKET DATA ───────────────────────
         print("[DATA] Fetching REAL market data...")
@@ -601,16 +625,25 @@ MARKET DATA:
         router_name = config["router_name"]
 
         try:
+            # Build industry context block if available
+            industry_block = ""
+            if hasattr(self, '_industry_context') and self._industry_context:
+                industry_block = f"""
+INDUSTRY INTELLIGENCE (proprietary knowledge graph):
+{self._industry_context}
+"""
+
             user_message = f"""COMMODITY: {commodity}
 
 REAL MARKET DATA (from yfinance + GDELT, fetched just now):
 {data_str}
-
+{industry_block}
 INSTRUCTIONS:
 1. Analyze this REAL data. Use the ACTUAL numbers provided above.
-2. Do NOT invent or hallucinate data.
-3. Respond with ONLY a JSON object. No text before or after the JSON.
-4. The JSON must have these exact fields: signal, confidence, reasoning, sources_analyzed, key_finding."""
+2. Cross-reference with industry knowledge: who are the key players, where are the mines/smelters, what exchanges set the price.
+3. Do NOT invent or hallucinate data.
+4. Respond with ONLY a JSON object. No text before or after the JSON.
+5. The JSON must have these exact fields: signal, confidence, reasoning, sources_analyzed, key_finding."""
 
             # Call LLM via router with retry on 429 (rate limit)
             max_retries = 2
