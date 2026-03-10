@@ -254,13 +254,13 @@ AGENT_MODEL_MAP_IDEAL = {
     "quant_alpha":           "deepseek-v3",
     "sentiment_flow":        "groq-llama",         # Fast sentiment
 
-    # Critical — DeepSeek for reliability, fallback to Groq/Gemini
-    "risk_guardian":         "deepseek-v3",           # Paid API, no daily limits
+    # Critical — Groq (fast + working), fallback to Gemini
+    "risk_guardian":         "gemini-flash",          # Spread load: risk → Gemini
     "execution_engine":      "gemini-flash",        # Gemini for real-time
     "counterintelligence":   "gpt4o-mini",          # GPT for adversarial
 
-    # Commander (synthesis) — DeepSeek for reliability, Groq as fallback
-    "commander":             "deepseek-v3",
+    # Commander (synthesis) — Groq for speed, fallback to Gemini
+    "commander":             "groq-llama",
 }
 
 # 5-deep fallback chains — prioritized by cost
