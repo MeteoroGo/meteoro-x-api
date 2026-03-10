@@ -583,6 +583,13 @@ Respond with ONLY this JSON (no text before or after):
             _last_debug["master_latency_ms"] = analysis_latency
             _last_debug["master_content_length"] = len(raw_content)
             _last_debug["master_content_empty"] = not raw_content.strip()
+            # Extract provider errors if present in fallback response
+            try:
+                if llm_response.provider == "fallback":
+                    fb_data = json.loads(raw_content)
+                    _last_debug["master_provider_errors"] = fb_data.get("provider_errors", [])
+            except Exception:
+                pass
 
             # Parse the comprehensive response
             master_result = self._parse_master_analysis(

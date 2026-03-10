@@ -254,13 +254,13 @@ AGENT_MODEL_MAP_IDEAL = {
     "quant_alpha":           "deepseek-v3",
     "sentiment_flow":        "groq-llama",         # Fast sentiment
 
-    # Critical — Groq for speed, fallback to Gemini
-    "risk_guardian":         "groq-llama",           # Speed + free tier
+    # Critical — DeepSeek for reliability, fallback to Groq/Gemini
+    "risk_guardian":         "deepseek-v3",           # Paid API, no daily limits
     "execution_engine":      "gemini-flash",        # Gemini for real-time
     "counterintelligence":   "gpt4o-mini",          # GPT for adversarial
 
-    # Commander (synthesis) — Groq for speed, pipeline only uses 2 calls
-    "commander":             "groq-llama",
+    # Commander (synthesis) — DeepSeek for reliability, Groq as fallback
+    "commander":             "deepseek-v3",
 }
 
 # 5-deep fallback chains — prioritized by cost
@@ -511,12 +511,15 @@ async def call_llm(
     chain = [primary_key] + FALLBACK_CHAIN.get(primary_key, [])
 
     last_error = None
+    provider_errors = []  # Track per-provider errors for debugging
+
     for chain_idx, model_key in enumerate(chain):
         profile = MODELS.get(model_key)
         if not profile:
             continue
         api_key = os.getenv(profile.api_key_env, "").strip()
         if not _is_valid_api_key(api_key):
+            provider_errors.append(f"{model_key}: NO_KEY")
             continue
         caller = PROVIDER_CALLERS.get(profile.provider)
         if not caller:
@@ -524,7 +527,7 @@ async def call_llm(
 
         # Skip providers in cooldown (auth/credit failures)
         if not _is_provider_healthy(profile.provider.value):
-            logger.debug(f"[{agent_name}] Skipping {model_key} — provider in cooldown")
+            provider_errors.append(f"{model_key}: COOLDOWN")
             continue
 
         # Small delay between trying different providers
@@ -544,6 +547,7 @@ async def call_llm(
                     out = result.get("output_tokens", 0)
                     cost = (inp * profile.cost_input_per_m + out * profile.cost_output_per_m) / 1_000_000
                     cost_tracker.record(model_key, cost)
+                    logger.info(f"[{agent_name}] ✓ {model_key} succeeded [{latency}ms]")
                     return LLMResponse(
                         content=result["content"],
                         model_used=model_key,
@@ -557,6 +561,8 @@ async def call_llm(
                 except Exception as e:
                     last_error = e
                     err_str = str(e).lower()
+                    elapsed_ms = int((time.time() - t0) * 1000)
+                    provider_errors.append(f"{model_key}: {str(e)[:120]} [{elapsed_ms}ms]")
 
                     # Auth/credit failures — disable provider
                     is_auth_fail = any(kw in err_str for kw in [
@@ -570,21 +576,25 @@ async def call_llm(
                         break
 
                     # Rate limit — DON'T retry same provider, move to next in chain
-                    # This is critical: retrying 429 wastes time; the next provider
-                    # in the fallback chain is likely available immediately.
                     is_429 = "429" in err_str or "rate" in err_str or "too many" in err_str
                     if is_429:
-                        logger.info(f"[{agent_name}] {model_key} rate-limited — skipping to next provider")
-                        break  # Move to next provider in fallback chain
-                    else:
-                        logger.warning(f"[{agent_name}] {model_key} failed: {str(e)[:80]}")
+                        logger.info(f"[{agent_name}] {model_key} rate-limited — skipping [{elapsed_ms}ms]")
                         break
+                    else:
+                        logger.warning(f"[{agent_name}] {model_key} failed: {str(e)[:80]} [{elapsed_ms}ms]")
+                        break
+
+    # All providers failed — log the chain
+    print(f"[ROUTER] ALL PROVIDERS FAILED for {agent_name}:")
+    for pe in provider_errors:
+        print(f"  → {pe}")
 
     return LLMResponse(
         content=json.dumps({
             "signal": "HOLD", "confidence": 0,
             "reasoning": f"All LLM providers unavailable: {last_error}",
             "sources_analyzed": 0,
+            "provider_errors": provider_errors,
         }),
         model_used="none", provider="fallback", latency_ms=0,
     )

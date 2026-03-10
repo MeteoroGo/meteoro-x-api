@@ -880,7 +880,7 @@ async def get_latency_stats():
 @app.get("/api/ping")
 async def ping():
     """Lightweight keep-alive endpoint — used by background self-ping to prevent Render from sleeping."""
-    return {"pong": True, "ts": time.time(), "build": "v15.3-routing-fix"}
+    return {"pong": True, "ts": time.time(), "build": "v15.4-deepseek"}
 
 
 @app.get("/api/debug")
@@ -1404,15 +1404,10 @@ async def startup():
         print(f"  Router status: {e}")
     print("=" * 60)
 
-    # WARMUP: Test all providers with a micro-call to identify dead ones early
-    try:
-        from multi_model_router import warmup_providers
-        print("[WARMUP] Testing all configured LLM providers...")
-        warmup_results = await warmup_providers()
-        working = sum(1 for v in (warmup_results or {}).values() if v == "OK")
-        print(f"[WARMUP] {working} providers confirmed alive")
-    except Exception as e:
-        print(f"[WARMUP] Warmup failed (non-critical): {e}")
+    # WARMUP DISABLED: Consumes free tier tokens/requests quotas
+    # Groq free tier: 100K tokens/day, Gemini free tier: 20 requests/day
+    # Each warmup call wastes 50-100 tokens. Not worth it with limited quotas.
+    print("[WARMUP] ═══ DISABLED — preserving free tier quotas ═══")
 
     # Pre-initialize swarm
     get_swarm()
