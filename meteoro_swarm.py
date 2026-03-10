@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 ╔══════════════════════════════════════════════════════════════════╗
-║  METEORO SWARM v12 — Autonomous Commodity Intelligence            ║
-║  Agentic System | Multi-Model Router | Industry Knowledge Graph   ║
+║  METEORO SWARM v13 — Autonomous Learning Intelligence             ║
+║  Agentic System | Memory | Knowledge Graph | Correspondents       ║
 ║                                                                    ║
 ║  FLOW:                                                            ║
 ║    1. Fetch REAL market data (yfinance, GDELT, macro)            ║
@@ -65,6 +65,14 @@ try:
 except Exception as e:
     HAS_CORRESPONDENTS = False
     print(f"[WARN] correspondents import failed: {e}")
+
+# Autonomous Memory System — learns, remembers, auto-calibrates
+try:
+    from memory.autonomous_memory import AutonomousMemory
+    HAS_MEMORY = True
+except Exception as e:
+    HAS_MEMORY = False
+    print(f"[WARN] autonomous_memory import failed: {e}")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -352,6 +360,16 @@ class MeteorSwarm:
     def __init__(self):
         self.agent_configs = AGENT_CONFIGS
 
+        # Initialize autonomous memory
+        self.memory = None
+        if HAS_MEMORY:
+            try:
+                self.memory = AutonomousMemory()
+                print("[MEMORY] Autonomous memory system initialized")
+            except Exception as me:
+                print(f"[MEMORY] Failed to initialize: {me}")
+                self.memory = None
+
     async def analyze(
         self,
         commodity: str,
@@ -390,9 +408,20 @@ class MeteorSwarm:
             except Exception as ce:
                 print(f"[CORRESPONDENTS] Error: {ce}")
 
+        # ─── STEP 0.7: MEMORY CONTEXT ─────────────────────────────
+        memory_context = ""
+        if self.memory:
+            try:
+                memory_context = await self.memory.get_memory_context(commodity)
+                if memory_context:
+                    print(f"[MEMORY] Historical context loaded for {commodity}")
+            except Exception as me:
+                print(f"[MEMORY] Error loading context: {me}")
+
         # Store context for agents to access
         self._industry_context = industry_context
         self._correspondent_context = correspondent_context
+        self._memory_context = memory_context
 
         # ─── STEP 1: FETCH REAL MARKET DATA ───────────────────────
         print("[DATA] Fetching REAL market data...")
@@ -607,6 +636,74 @@ MARKET DATA:
         print(f"Latency: {total_latency:.0f}ms | Cost: ${total_cost:.4f}")
         print(f"{'='*70}\n")
 
+        # ─── STEP 6: PERSIST TO AUTONOMOUS MEMORY ─────────────────
+        if self.memory:
+            try:
+                # Extract price from market data
+                price_at_signal = 0.0
+                cd = market_data.get("commodity", {})
+                if isinstance(cd, dict):
+                    price_at_signal = cd.get("price", 0.0)
+
+                # Build agent results list for memory
+                agent_results_for_memory = []
+                for r in all_results:
+                    agent_results_for_memory.append({
+                        "agent_name": r.agent_name,
+                        "signal": r.signal.value,
+                        "confidence": r.confidence,
+                        "model_used": r.metadata.get("model_used", "unknown"),
+                        "provider": r.metadata.get("provider", "unknown"),
+                        "latency_ms": r.latency_ms,
+                    })
+
+                signal_id = await self.memory.save_signal({
+                    "commodity": commodity,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "final_signal": final_signal.value,
+                    "conviction": conviction,
+                    "reasoning": reasoning[:500],
+                    "agents_bullish": sum(1 for r in all_results if r.signal == Signal.BUY),
+                    "agents_bearish": sum(1 for r in all_results if r.signal == Signal.SELL),
+                    "agents_neutral": sum(1 for r in all_results if r.signal in [Signal.HOLD, Signal.NEUTRAL]),
+                    "risk_guardian_veto": veto_active,
+                    "total_latency_ms": total_latency,
+                    "cost_usd": total_cost,
+                    "session_id": session_id,
+                    "price_at_signal": price_at_signal,
+                    "agent_results": agent_results_for_memory,
+                })
+
+                # Record individual agent performance
+                for r in all_results:
+                    await self.memory.record_agent_performance(
+                        commodity=commodity,
+                        agent_name=r.agent_name,
+                        signal=r.signal.value,
+                        confidence=r.confidence,
+                    )
+
+                # Snapshot the price
+                if price_at_signal > 0:
+                    await self.memory.snapshot_price(
+                        commodity=commodity,
+                        price=price_at_signal,
+                        signal_id=signal_id,
+                    )
+
+                print(f"[MEMORY] Signal #{signal_id} persisted with {len(all_results)} agent records")
+
+                # Async: try to update outcomes from past signals (non-blocking)
+                try:
+                    outcome_result = await self.memory.update_outcomes(days=5)
+                    if outcome_result.get("updated", 0) > 0:
+                        print(f"[MEMORY] Updated {outcome_result['updated']} past signal outcomes")
+                except Exception:
+                    pass  # Non-critical, will retry next analysis
+
+            except Exception as mem_err:
+                print(f"[MEMORY] Error persisting signal: {mem_err}")
+
         return SwarmSignal(
             timestamp=datetime.now(timezone.utc).isoformat(),
             commodity=commodity,
@@ -660,18 +757,27 @@ LOCAL INTELLIGENCE (autonomous correspondent network — producer country press,
 {self._correspondent_context}
 """
 
+            # Build memory context block if available
+            memory_block = ""
+            if hasattr(self, '_memory_context') and self._memory_context:
+                memory_block = f"""
+HISTORICAL MEMORY (autonomous learning system — past signals, track record, agent calibration):
+{self._memory_context}
+"""
+
             user_message = f"""COMMODITY: {commodity}
 
 REAL MARKET DATA (from yfinance + GDELT, fetched just now):
 {data_str}
-{industry_block}{correspondent_block}
+{industry_block}{correspondent_block}{memory_block}
 INSTRUCTIONS:
 1. Analyze this REAL data. Use the ACTUAL numbers provided above.
 2. Cross-reference with industry knowledge: who are the key players, where are the mines/smelters/ports, what exchanges set the price, who are the end buyers.
 3. Consider local correspondent intelligence: what is happening on the ground in producer countries.
-4. Do NOT invent or hallucinate data.
-5. Respond with ONLY a JSON object. No text before or after the JSON.
-6. The JSON must have these exact fields: signal, confidence, reasoning, sources_analyzed, key_finding."""
+4. Consider historical memory: what signals did we generate before for this commodity, what was our accuracy, calibrate your confidence accordingly.
+5. Do NOT invent or hallucinate data.
+6. Respond with ONLY a JSON object. No text before or after the JSON.
+7. The JSON must have these exact fields: signal, confidence, reasoning, sources_analyzed, key_finding."""
 
             # Call LLM via router with retry on 429 (rate limit)
             max_retries = 2

@@ -1,17 +1,17 @@
 """
-METEORO X v12 — API Server
-==============================
-FastAPI server powering the Meteoro Autonomous Intelligence System.
+METEORO X v13.0 — API Server + Autonomous Memory
+===================================================
+FastAPI server: Agentic System + Knowledge Graph + Memory + Correspondents
 
 Endpoints:
   POST /api/analyze         - Full agentic system analysis
   POST /api/swarm/analyze   - Direct swarm endpoint
-  GET  /api/health          - Server heartbeat
+  GET  /api/health          - Server heartbeat + capabilities
   GET  /api/macro           - Current macro snapshot
   GET  /api/signals         - Recent signals history
   GET  /api/swarm/config    - Swarm configuration info
   GET  /api/diagnostics     - Provider status
-  === KNOWLEDGE GRAPH (10 entity types) ===
+  === KNOWLEDGE GRAPH (10 entity types + correspondents) ===
   GET  /api/knowledge/exchanges    - Global commodity exchanges
   GET  /api/knowledge/traders      - Major commodity traders
   GET  /api/knowledge/mines        - Major mines worldwide
@@ -21,8 +21,17 @@ Endpoints:
   GET  /api/knowledge/logistics    - Rail, road, pipeline operators
   GET  /api/knowledge/qa           - Inspection & QA companies
   GET  /api/knowledge/clients      - End consumers / buyers
+  GET  /api/knowledge/correspondents - Autonomous correspondent network
   GET  /api/knowledge/stats        - Knowledge graph statistics
   GET  /api/knowledge/{commodity}  - Full industry context for a commodity
+  === AUTONOMOUS MEMORY (learning + calibration) ===
+  GET  /api/memory/dashboard          - Performance dashboard
+  GET  /api/memory/track-record       - Accuracy statistics
+  GET  /api/memory/leaderboard        - Agent performance ranking
+  GET  /api/memory/calibration/{c}    - Auto-calibration weights
+  GET  /api/memory/context/{c}        - Historical memory context
+  POST /api/memory/update-outcomes    - Trigger outcome evaluation
+  ===
   GET  /api/ping            - Lightweight keep-alive endpoint
   WS   /ws/analyze          - Real-time streaming analysis
 """
@@ -103,6 +112,14 @@ except Exception as e:
     HAS_CORRESPONDENTS = False
     print(f"[WARN] Correspondents import failed: {e}")
 
+# Autonomous Memory System
+try:
+    from memory.autonomous_memory import AutonomousMemory
+    HAS_MEMORY = True
+except Exception as e:
+    HAS_MEMORY = False
+    print(f"[WARN] Autonomous memory import failed: {e}")
+
 # ═══════════════════════════════════════════════════════════════
 # APP SETUP
 # ═══════════════════════════════════════════════════════════════
@@ -110,7 +127,7 @@ except Exception as e:
 app = FastAPI(
     title="Meteoro X — Autonomous Intelligence",
     description="AI-Native Autonomous Commodity Intelligence | Agentic System | Industry Knowledge Graph",
-    version="12.0.0",
+    version="13.0.0",
 )
 
 app.add_middleware(
@@ -125,6 +142,15 @@ app.add_middleware(
 signal_history = []
 swarm_instance = None
 benchmark = None
+memory_instance = None
+
+# Initialize autonomous memory
+if HAS_MEMORY:
+    try:
+        memory_instance = AutonomousMemory()
+        print("[MEMORY] Autonomous memory system ready")
+    except Exception as me:
+        print(f"[WARN] Memory initialization failed: {me}")
 
 if HAS_BENCHMARK:
     benchmark = LatencyBenchmark(db_path=os.environ.get("BENCHMARK_DB", "/tmp/latency_benchmark.db"))
@@ -566,7 +592,7 @@ async def health():
     return {
         "status": "operational",
         "system": "Meteoro X Autonomous Intelligence",
-        "version": "12.0.0",
+        "version": "13.0.0",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "swarm_active": HAS_SWARM,
         "knowledge_graph": HAS_KNOWLEDGE,
@@ -579,11 +605,14 @@ async def health():
             "quantitative_analysis": True,
             "risk_management": True,
             "industry_knowledge": HAS_KNOWLEDGE,
+            "autonomous_memory": HAS_MEMORY,
+            "correspondents_network": HAS_CORRESPONDENTS,
         },
         "active_providers": active_models,
         "data_sources": 8,
         "signals_generated": len(signal_history),
         "cost_summary": cost,
+        "memory_active": memory_instance is not None,
         "uptime": "active",
     }
 
@@ -1111,6 +1140,92 @@ async def knowledge_commodity(commodity: str):
 
 
 # ═══════════════════════════════════════════════════════════════
+# MEMORY & PERFORMANCE ENDPOINTS (v13)
+# ═══════════════════════════════════════════════════════════════
+
+@app.get("/api/memory/dashboard")
+async def memory_dashboard():
+    """Full performance dashboard — accuracy, leaderboard, streaks, calibration."""
+    if not memory_instance:
+        raise HTTPException(status_code=503, detail="Memory system not available")
+    try:
+        dashboard = await memory_instance.get_performance_dashboard()
+        return {"dashboard": dashboard, "source": "meteoro_autonomous_memory_v13"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/memory/track-record")
+async def memory_track_record(commodity: str = None):
+    """Track record — overall or per-commodity accuracy statistics."""
+    if not memory_instance:
+        raise HTTPException(status_code=503, detail="Memory system not available")
+    try:
+        record = await memory_instance.get_track_record(commodity)
+        return {"track_record": record, "source": "meteoro_autonomous_memory_v13"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/memory/leaderboard")
+async def memory_agent_leaderboard(commodity: str = None):
+    """Agent leaderboard — which agents are most accurate, ranked by performance."""
+    if not memory_instance:
+        raise HTTPException(status_code=503, detail="Memory system not available")
+    try:
+        leaderboard = await memory_instance.get_agent_leaderboard(commodity)
+        return {"leaderboard": leaderboard, "source": "meteoro_autonomous_memory_v13"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/memory/calibration/{commodity}")
+async def memory_calibration_weights(commodity: str):
+    """Calibration weights — auto-adjusted agent weights based on historical accuracy."""
+    if not memory_instance:
+        raise HTTPException(status_code=503, detail="Memory system not available")
+    try:
+        detected = detect_commodity(commodity)
+        weights = await memory_instance.get_calibration_weights(detected)
+        return {
+            "commodity": detected,
+            "weights": weights,
+            "source": "meteoro_autonomous_memory_v13",
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/memory/context/{commodity}")
+async def memory_context(commodity: str):
+    """Memory context — narrative historical context for a commodity (what agents receive)."""
+    if not memory_instance:
+        raise HTTPException(status_code=503, detail="Memory system not available")
+    try:
+        detected = detect_commodity(commodity)
+        context = await memory_instance.get_memory_context(detected)
+        return {
+            "commodity": detected,
+            "memory_context": context or "No historical memory for this commodity yet.",
+            "source": "meteoro_autonomous_memory_v13",
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/memory/update-outcomes")
+async def memory_update_outcomes(days: int = 5):
+    """Manually trigger outcome evaluation — compare past signals vs actual price movements."""
+    if not memory_instance:
+        raise HTTPException(status_code=503, detail="Memory system not available")
+    try:
+        result = await memory_instance.update_outcomes(days)
+        return {"result": result, "source": "meteoro_autonomous_memory_v13"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ═══════════════════════════════════════════════════════════════
 # STARTUP
 # ═══════════════════════════════════════════════════════════════
 
@@ -1152,7 +1267,7 @@ async def _keep_alive_loop():
 @app.on_event("startup")
 async def startup():
     print("=" * 60)
-    print("  METEORO X v12 — Autonomous Intelligence API")
+    print("  METEORO X v13 — Autonomous Intelligence API")
     print("  Agentic System | Multi-Model | Knowledge Graph")
     print(f"  Swarm Available: {HAS_SWARM}")
     print(f"  Legacy Pipeline: {HAS_LEGACY}")
