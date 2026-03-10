@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ╔══════════════════════════════════════════════════════════════════╗
-║  METEORO SWARM v13 — Autonomous Learning Intelligence             ║
+║  METEORO SWARM v14 — 6-Provider Proactive Intelligence             ║
 ║  Agentic System | Memory | Knowledge Graph | Correspondents       ║
 ║                                                                    ║
 ║  FLOW:                                                            ║

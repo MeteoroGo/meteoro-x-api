@@ -1,25 +1,28 @@
 #!/usr/bin/env python3
 """
-METEORO X v13 — MULTI-MODEL ROUTER + RATE LIMITER
-Multi-Model Router | Dynamic Agent Routing | Per-Provider Semaphores | Retry + Exponential Backoff
-
-ARCHITECTURE:
-  Dynamic provider detection: Automatically detects available API keys at startup
-  Ideal routing: Routes each agent to its optimal model based on specialization
-  Graceful fallback: Routes to any available provider if primary is unavailable
-
-SUPPORTED PROVIDERS (availability depends on configured API keys):
-  - Anthropic models (synthesis, coordination, risk analysis)
-  - DeepSeek V3 (quantitative analysis, deep reasoning)
-  - Kimi/Moonshot (Asian markets, multi-language support)
-  - Google Gemini (web search, real-time grounding)
-
-RATE LIMITING:
-  Each provider enforces request-level rate limits.
-  Swarm orchestrates agent sequencing with inter-request delays.
-  Fallback chains provide resilience when primary provider is unavailable.
-
-Target cost per analysis cycle (agentic system): $0.03-0.08
+╔══════════════════════════════════════════════════════════════════╗
+║  METEORO X v14 — 6-PROVIDER INTELLIGENCE BACKBONE               ║
+║  Multi-Model Router | Cost-Optimized | Per-Provider Semaphores  ║
+║  Retry + Exponential Backoff | Provider Health Cache            ║
+║                                                                  ║
+║  6 PROVIDERS:                                                    ║
+║    1. Anthropic Claude Haiku 4.5  — synthesis, risk, Spanish    ║
+║    2. DeepSeek V3                 — quant, reasoning ($0.28/M)  ║
+║    3. Kimi K2 (Moonshot)          — Asia, multi-language        ║
+║    4. Google Gemini 2.5 Flash     — real-time, news, grounding  ║
+║    5. OpenAI GPT-4o mini          — general analysis ($0.15/M)  ║
+║    6. Groq (Llama 3.3 70B)       — ultra-fast, FREE tier       ║
+║                                                                  ║
+║  COST-OPTIMIZED ROUTING:                                        ║
+║    Primary: cheapest provider per agent specialization           ║
+║    Fallback: 5-deep chain ensures no single point of failure    ║
+║    Target: $0.02-0.05 per analysis cycle                        ║
+║                                                                  ║
+║  RATE LIMITING:                                                  ║
+║    Per-provider asyncio.Semaphore (1 concurrent max)            ║
+║    Exponential backoff on 429 (3s, 6s, 12s)                     ║
+║    Provider health cache — auto-disable on auth/credit failure  ║
+╚══════════════════════════════════════════════════════════════════╝
 """
 
 import os
@@ -40,8 +43,6 @@ except ImportError:
 
 # ═══════════════════════════════════════════════════════════════
 # API KEY VALIDATION
-# Filters out placeholder values and keys that are too short
-# to be real. Prevents wasted time on failed auth attempts.
 # ═══════════════════════════════════════════════════════════════
 
 _PLACEHOLDER_VALUES = {"PENDING", "NONE", "TODO", "XXX", "PLACEHOLDER", "CHANGEME", "YOUR_KEY_HERE", ""}
@@ -53,28 +54,23 @@ def _is_valid_api_key(key: str) -> bool:
     cleaned = key.strip().upper()
     if cleaned in _PLACEHOLDER_VALUES:
         return False
-    # Real API keys are at least 20 chars
     if len(key.strip()) < 20:
         return False
     return True
 
 # ═══════════════════════════════════════════════════════════════
 # RATE LIMITING — Per-provider semaphores + retry with backoff.
-# Prevents concurrent calls to same provider (which triggers 429).
 # Each provider gets at most 1 in-flight request at a time.
 # On 429: exponential backoff retry (3s, 6s, 12s).
+# On auth/credit failure: disable provider for 5-min cooldown.
 # ═══════════════════════════════════════════════════════════════
 
-MAX_RETRIES = 3           # Retry per provider on 429
-RETRY_BASE_DELAY = 3.0    # Base delay for exponential backoff (seconds)
-INTER_PROVIDER_DELAY = 0.5  # Small delay between trying different providers
-PROVIDER_COOLDOWN_S = 300   # Skip a provider for 5 min after auth/credit failure
+MAX_RETRIES = 3
+RETRY_BASE_DELAY = 3.0
+INTER_PROVIDER_DELAY = 0.5
+PROVIDER_COOLDOWN_S = 300
 
-# Per-provider semaphores: serialize access to each provider
-# This prevents 3 parallel agents from all hitting Anthropic at once
 _provider_semaphores: Dict[str, asyncio.Semaphore] = {}
-# Provider health cache: track providers that fail with auth/credit errors
-# Maps provider_value -> timestamp when failure was detected
 _provider_failures: Dict[str, float] = {}
 
 def _get_provider_semaphore(provider_value: str) -> asyncio.Semaphore:
@@ -89,23 +85,28 @@ def _is_provider_healthy(provider_value: str) -> bool:
     if fail_time is None:
         return True
     if time.time() - fail_time > PROVIDER_COOLDOWN_S:
-        # Cooldown expired, allow retry
         del _provider_failures[provider_value]
         logger.info(f"[ROUTER] Provider {provider_value} cooldown expired — re-enabling")
         return True
     return False
 
 def _mark_provider_failed(provider_value: str, reason: str):
-    """Mark a provider as failed (auth/credit error) — skip for cooldown period."""
+    """Mark a provider as failed — skip for cooldown period."""
     _provider_failures[provider_value] = time.time()
     logger.warning(f"[ROUTER] Provider {provider_value} DISABLED for {PROVIDER_COOLDOWN_S}s: {reason}")
 
+
+# ═══════════════════════════════════════════════════════════════
+# 6 PROVIDERS
+# ═══════════════════════════════════════════════════════════════
 
 class ModelProvider(Enum):
     ANTHROPIC = "anthropic"
     DEEPSEEK = "deepseek"
     KIMI = "kimi"
     GEMINI = "gemini"
+    OPENAI = "openai"
+    GROQ = "groq"
 
 
 @dataclass
@@ -124,17 +125,30 @@ class ModelProfile:
     timeout_s: float = 15.0
 
 
+# ═══════════════════════════════════════════════════════════════
+# MODEL REGISTRY — 6 providers, cost-optimized
+# Ordered by cost (cheapest first for reference):
+#   Groq Llama 3.3 70B:   FREE (500K tok/day)
+#   DeepSeek V3:           $0.28/$0.42 per M tokens
+#   GPT-4o mini:           $0.15/$0.60 per M tokens
+#   Gemini 2.5 Flash:      $0.30/$2.50 per M tokens (free tier: 10 RPM)
+#   Kimi K2:               $0.60/$2.50 per M tokens
+#   Claude Haiku 4.5:      $1.00/$5.00 per M tokens
+# ═══════════════════════════════════════════════════════════════
+
 MODELS: Dict[str, ModelProfile] = {
-    "claude-haiku": ModelProfile(
-        name="Claude Haiku 4.5",
-        model_id="claude-haiku-4-5-20251001",
-        provider=ModelProvider.ANTHROPIC,
-        base_url="https://api.anthropic.com/v1/messages",
-        api_key_env="ANTHROPIC_API_KEY",
-        cost_input_per_m=0.80,
-        cost_output_per_m=4.00,
-        specialization=["synthesis", "coordination", "risk", "spanish"],
-        timeout_s=15.0,
+    # ── TIER 1: ULTRA-LOW COST ─────────────────────────────────
+    "groq-llama": ModelProfile(
+        name="Groq Llama 3.3 70B",
+        model_id="llama-3.3-70b-versatile",
+        provider=ModelProvider.GROQ,
+        base_url="https://api.groq.com/openai/v1/chat/completions",
+        api_key_env="GROQ_API_KEY",
+        cost_input_per_m=0.06,      # Effectively free on free tier
+        cost_output_per_m=0.06,
+        specialization=["speed", "volume", "sentiment", "general"],
+        supports_tools=False,
+        timeout_s=10.0,
     ),
     "deepseek-v3": ModelProfile(
         name="DeepSeek V3",
@@ -142,66 +156,107 @@ MODELS: Dict[str, ModelProfile] = {
         provider=ModelProvider.DEEPSEEK,
         base_url="https://api.deepseek.com/v1/chat/completions",
         api_key_env="DEEPSEEK_API_KEY",
-        cost_input_per_m=0.14,
-        cost_output_per_m=0.28,
+        cost_input_per_m=0.28,
+        cost_output_per_m=0.42,
         specialization=["quantitative", "reasoning", "math", "backtesting"],
         supports_tools=False,
-        timeout_s=10.0,
+        timeout_s=12.0,
     ),
-    "kimi-v1": ModelProfile(
-        name="Kimi Moonshot v1",
-        model_id="moonshot-v1-8k",
-        provider=ModelProvider.KIMI,
-        base_url="https://api.moonshot.cn/v1/chat/completions",
-        api_key_env="KIMI_API_KEY",
-        cost_input_per_m=0.60,
+    "gpt4o-mini": ModelProfile(
+        name="GPT-4o mini",
+        model_id="gpt-4o-mini",
+        provider=ModelProvider.OPENAI,
+        base_url="https://api.openai.com/v1/chat/completions",
+        api_key_env="OPENAI_API_KEY",
+        cost_input_per_m=0.15,
         cost_output_per_m=0.60,
-        context_window=8192,
-        specialization=["mandarin", "china", "asia", "demand"],
-        supports_tools=False,
-        timeout_s=10.0,
+        specialization=["general", "analysis", "structured_output", "geopolitical"],
+        supports_tools=True,
+        timeout_s=12.0,
     ),
+
+    # ── TIER 2: MID-COST, SPECIALIZED ─────────────────────────
     "gemini-flash": ModelProfile(
-        name="Gemini 2.0 Flash",
-        model_id="gemini-2.0-flash",
+        name="Gemini 2.5 Flash",
+        model_id="gemini-2.5-flash-preview-04-17",
         provider=ModelProvider.GEMINI,
         base_url="https://generativelanguage.googleapis.com/v1beta/models",
         api_key_env="GEMINI_API_KEY",
-        cost_input_per_m=0.0,
-        cost_output_per_m=0.0,
-        specialization=["web_search", "grounding", "realtime", "news"],
+        cost_input_per_m=0.15,      # Free tier: 10 RPM, 500 RPD
+        cost_output_per_m=0.60,
+        specialization=["web_search", "grounding", "realtime", "news", "multimodal"],
         supports_tools=False,
-        timeout_s=8.0,
+        timeout_s=10.0,
+    ),
+    "kimi-k2": ModelProfile(
+        name="Kimi K2",
+        model_id="kimi-k2-0711",
+        provider=ModelProvider.KIMI,
+        base_url="https://api.moonshot.ai/v1/chat/completions",
+        api_key_env="KIMI_API_KEY",
+        cost_input_per_m=0.60,
+        cost_output_per_m=2.50,
+        context_window=262144,
+        specialization=["mandarin", "china", "asia", "demand", "multimodal"],
+        supports_tools=False,
+        timeout_s=12.0,
+    ),
+
+    # ── TIER 3: PREMIUM ────────────────────────────────────────
+    "claude-haiku": ModelProfile(
+        name="Claude Haiku 4.5",
+        model_id="claude-haiku-4-5-20251001",
+        provider=ModelProvider.ANTHROPIC,
+        base_url="https://api.anthropic.com/v1/messages",
+        api_key_env="ANTHROPIC_API_KEY",
+        cost_input_per_m=1.00,
+        cost_output_per_m=5.00,
+        specialization=["synthesis", "coordination", "risk", "spanish", "structured"],
+        timeout_s=15.0,
     ),
 }
 
+
 # ═══════════════════════════════════════════════════════════════
-# AGENT → MODEL ROUTING
-# Ideal routing map: Each agent routed to its optimal model.
-# Availability determined by configured API keys at runtime.
-# Automatic fallback ensures graceful degradation if primary model unavailable.
+# AGENT → MODEL ROUTING (Cost-Optimized)
+# Strategy: Cheapest capable provider as primary.
+# Premium models (Claude) reserved for synthesis/risk only.
+# Each agent has 5-deep fallback chain.
 # ═══════════════════════════════════════════════════════════════
+
 AGENT_MODEL_MAP_IDEAL = {
-    "satellite_recon":       "claude-haiku",
-    "maritime_intel":        "claude-haiku",
+    # Physical Intelligence — Groq (free, fast) + DeepSeek fallback
+    "satellite_recon":       "groq-llama",
+    "maritime_intel":        "groq-llama",
     "supply_chain_mapper":   "deepseek-v3",
-    "latam_osint":           "claude-haiku",
-    "china_demand_oracle":   "kimi-v1",       # Kimi for China/Asia intelligence
-    "geopolitical_risk":     "gemini-flash",
+
+    # Regional Intelligence — GPT-4o mini (cheap, good at geopolitics)
+    "latam_osint":           "gpt4o-mini",
+    "china_demand_oracle":   "kimi-k2",           # Kimi for China/Asia
+    "geopolitical_risk":     "gpt4o-mini",
+
+    # Quantitative — DeepSeek (best at math/quant, ultra-cheap)
     "macro_regime":          "deepseek-v3",
     "quant_alpha":           "deepseek-v3",
-    "sentiment_flow":        "kimi-v1",       # Kimi for Asian sentiment
-    "risk_guardian":         "claude-haiku",
-    "execution_engine":      "claude-haiku",
-    "counterintelligence":   "deepseek-v3",
+    "sentiment_flow":        "groq-llama",         # Fast sentiment
+
+    # Critical — Claude Haiku (premium, but only 3 calls)
+    "risk_guardian":         "claude-haiku",        # Risk needs best model
+    "execution_engine":      "gemini-flash",        # Gemini for real-time
+    "counterintelligence":   "gpt4o-mini",          # GPT for adversarial
+
+    # Commander (synthesis) — Claude
     "commander":             "claude-haiku",
 }
 
+# 5-deep fallback chains — prioritized by cost
 FALLBACK_CHAIN: Dict[str, List[str]] = {
-    "claude-haiku":  ["deepseek-v3", "gemini-flash", "kimi-v1"],
-    "deepseek-v3":   ["claude-haiku", "gemini-flash", "kimi-v1"],
-    "kimi-v1":       ["deepseek-v3", "claude-haiku", "gemini-flash"],
-    "gemini-flash":  ["claude-haiku", "deepseek-v3", "kimi-v1"],
+    "groq-llama":    ["deepseek-v3", "gpt4o-mini", "gemini-flash", "kimi-k2", "claude-haiku"],
+    "deepseek-v3":   ["groq-llama", "gpt4o-mini", "gemini-flash", "kimi-k2", "claude-haiku"],
+    "gpt4o-mini":    ["deepseek-v3", "groq-llama", "gemini-flash", "kimi-k2", "claude-haiku"],
+    "gemini-flash":  ["groq-llama", "deepseek-v3", "gpt4o-mini", "kimi-k2", "claude-haiku"],
+    "kimi-k2":       ["deepseek-v3", "groq-llama", "gpt4o-mini", "gemini-flash", "claude-haiku"],
+    "claude-haiku":  ["deepseek-v3", "gpt4o-mini", "groq-llama", "gemini-flash", "kimi-k2"],
 }
 
 
@@ -210,13 +265,7 @@ FALLBACK_CHAIN: Dict[str, List[str]] = {
 # ═══════════════════════════════════════════════════════════════
 
 def _get_available_providers() -> set:
-    """
-    Detect which providers are available based on VALID API keys.
-    Filters out placeholder values like "PENDING", "NONE", etc.
-
-    Returns:
-        set: Provider enum values for which REAL API keys are configured.
-    """
+    """Detect which providers have valid API keys configured."""
     available = set()
     for model_key, profile in MODELS.items():
         api_key = os.getenv(profile.api_key_env, "").strip()
@@ -230,13 +279,7 @@ def _get_available_providers() -> set:
 
 
 def _get_available_models() -> set:
-    """
-    Detect which models are available based on VALID API keys.
-    Filters out placeholder values.
-
-    Returns:
-        set: Model keys for which REAL API keys are configured.
-    """
+    """Detect which models have valid API keys configured."""
     available = set()
     for model_key, profile in MODELS.items():
         api_key = os.getenv(profile.api_key_env, "").strip()
@@ -248,23 +291,15 @@ def _get_available_models() -> set:
 def get_active_routing() -> Dict[str, str]:
     """
     Build active routing map based on available providers.
-
-    For each agent, attempts to route to its ideal model.
-    If ideal model is unavailable, falls back to any available model.
-    If no models available, defaults to "gemini-flash" for graceful degradation.
-
-    Returns:
-        dict: Agent name -> model key mapping reflecting current availability.
+    Falls back through chain if primary model unavailable.
     """
     available_models = _get_available_models()
     active_map = {}
 
     for agent_name, ideal_model in AGENT_MODEL_MAP_IDEAL.items():
-        # Use ideal model if available
         if ideal_model in available_models:
             active_map[agent_name] = ideal_model
         else:
-            # Fall back to first available model in fallback chain
             fallback_chain = FALLBACK_CHAIN.get(ideal_model, [])
             fallback_found = None
             for fallback_model in fallback_chain:
@@ -272,20 +307,38 @@ def get_active_routing() -> Dict[str, str]:
                     fallback_found = fallback_model
                     break
 
-            # Final fallback: use any available model (prefer gemini-flash for stability)
             if fallback_found:
                 active_map[agent_name] = fallback_found
-            elif "gemini-flash" in available_models:
-                active_map[agent_name] = "gemini-flash"
             elif available_models:
-                # Last resort: pick first available model
                 active_map[agent_name] = next(iter(available_models))
             else:
-                # No models available: default to gemini-flash (may fail gracefully)
-                active_map[agent_name] = "gemini-flash"
+                active_map[agent_name] = "groq-llama"  # Default to free provider
 
     return active_map
 
+
+def get_provider_status() -> Dict[str, Any]:
+    """Return detailed provider status for diagnostics."""
+    status = {}
+    for model_key, profile in MODELS.items():
+        api_key = os.getenv(profile.api_key_env, "").strip()
+        has_key = _is_valid_api_key(api_key)
+        healthy = _is_provider_healthy(profile.provider.value)
+        status[model_key] = {
+            "provider": profile.provider.value,
+            "name": profile.name,
+            "key_configured": has_key,
+            "healthy": healthy,
+            "cost_per_m_input": profile.cost_input_per_m,
+            "cost_per_m_output": profile.cost_output_per_m,
+            "specialization": profile.specialization,
+        }
+    return status
+
+
+# ═══════════════════════════════════════════════════════════════
+# RESPONSE + COST TRACKING
+# ═══════════════════════════════════════════════════════════════
 
 @dataclass
 class LLMResponse:
@@ -321,6 +374,10 @@ class CostTracker:
 cost_tracker = CostTracker()
 
 
+# ═══════════════════════════════════════════════════════════════
+# PROVIDER CALLERS
+# ═══════════════════════════════════════════════════════════════
+
 async def _call_anthropic(profile: ModelProfile, system: str, user_msg: str) -> dict:
     api_key = os.getenv(profile.api_key_env, "")
     if not api_key:
@@ -348,6 +405,7 @@ async def _call_anthropic(profile: ModelProfile, system: str, user_msg: str) -> 
 
 
 async def _call_openai_compat(profile: ModelProfile, system: str, user_msg: str) -> dict:
+    """OpenAI-compatible caller — works for OpenAI, DeepSeek, Kimi, and Groq."""
     api_key = os.getenv(profile.api_key_env, "")
     if not api_key:
         raise ValueError(f"Missing {profile.api_key_env}")
@@ -405,8 +463,14 @@ PROVIDER_CALLERS = {
     ModelProvider.DEEPSEEK: _call_openai_compat,
     ModelProvider.KIMI: _call_openai_compat,
     ModelProvider.GEMINI: _call_gemini,
+    ModelProvider.OPENAI: _call_openai_compat,
+    ModelProvider.GROQ: _call_openai_compat,
 }
 
+
+# ═══════════════════════════════════════════════════════════════
+# MAIN LLM CALL — with rate limiting + fallback + health cache
+# ═══════════════════════════════════════════════════════════════
 
 async def call_llm(
     agent_name: str,
@@ -415,24 +479,11 @@ async def call_llm(
     model_override: Optional[str] = None,
 ) -> LLMResponse:
     """
-    Call LLM with automatic routing, fallback chain, and error handling.
-
-    Uses active routing map (which detects available providers) as the primary
-    routing decision. Supports model override for testing or special cases.
-    Falls back through provider chain if primary model is unavailable.
-
-    Args:
-        agent_name: Name of the calling agent
-        system_prompt: System-level instructions for the model
-        user_message: User message to process
-        model_override: Optional model key to override routing (for testing)
-
-    Returns:
-        LLMResponse: Model response with usage metrics and fallback tracking
+    Call LLM with automatic routing, 5-deep fallback chain, rate limiting,
+    and provider health caching. Routes to cheapest available provider first.
     """
-    # Get active routing based on available providers
     active_routing = get_active_routing()
-    primary_key = model_override or active_routing.get(agent_name, "gemini-flash")
+    primary_key = model_override or active_routing.get(agent_name, "groq-llama")
     chain = [primary_key] + FALLBACK_CHAIN.get(primary_key, [])
 
     last_error = None
@@ -452,11 +503,11 @@ async def call_llm(
             logger.debug(f"[{agent_name}] Skipping {model_key} — provider in cooldown")
             continue
 
-        # Small delay between trying different providers in fallback chain
+        # Small delay between trying different providers
         if chain_idx > 0:
             await asyncio.sleep(INTER_PROVIDER_DELAY)
 
-        # Acquire per-provider semaphore (serialize calls to same provider)
+        # Acquire per-provider semaphore
         sem = _get_provider_semaphore(profile.provider.value)
 
         for retry in range(MAX_RETRIES):
@@ -483,7 +534,7 @@ async def call_llm(
                     last_error = e
                     err_str = str(e).lower()
 
-                    # Detect auth/credit failures — disable provider for cooldown
+                    # Auth/credit failures — disable provider
                     is_auth_fail = any(kw in err_str for kw in [
                         "credit balance", "insufficient", "billing",
                         "authentication", "invalid api key", "unauthorized",
@@ -491,18 +542,18 @@ async def call_llm(
                     ])
                     if is_auth_fail:
                         _mark_provider_failed(profile.provider.value, str(e)[:100])
-                        break  # Skip to next provider immediately
+                        break
 
-                    # Detect rate limit — retry with backoff
+                    # Rate limit — retry with backoff
                     is_429 = "429" in err_str or "rate" in err_str or "too many" in err_str
                     if is_429 and retry < MAX_RETRIES - 1:
-                        wait = RETRY_BASE_DELAY * (2 ** retry)  # 3s, 6s, 12s
+                        wait = RETRY_BASE_DELAY * (2 ** retry)
                         logger.info(f"[{agent_name}] {model_key} rate-limited — retry {retry+1}/{MAX_RETRIES} in {wait:.0f}s")
                         await asyncio.sleep(wait)
-                        continue  # Retry same provider
+                        continue
                     else:
                         logger.warning(f"[{agent_name}] {model_key} failed: {str(e)[:80]}")
-                        break  # Move to next provider in chain
+                        break
 
     return LLMResponse(
         content=json.dumps({
@@ -515,17 +566,8 @@ async def call_llm(
 
 
 def get_model_for_agent(agent_name: str) -> str:
-    """
-    Get the active model assignment for an agent based on current provider availability.
-
-    Args:
-        agent_name: Name of the agent
-
-    Returns:
-        str: Model key (e.g., "claude-haiku", "deepseek-v3") currently assigned to this agent
-    """
     active_routing = get_active_routing()
-    return active_routing.get(agent_name, "gemini-flash")
+    return active_routing.get(agent_name, "groq-llama")
 
 def get_cost_summary() -> dict:
     return cost_tracker.summary()

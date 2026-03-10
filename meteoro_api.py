@@ -1,7 +1,7 @@
 """
-METEORO X v13.0 — API Server + Autonomous Memory
-===================================================
-FastAPI server: Agentic System + Knowledge Graph + Memory + Correspondents
+METEORO X v14 — 6-Provider Proactive Intelligence Platform
+===========================================================
+FastAPI server: 6 LLM Providers | Proactive Monitoring | Memory | Knowledge Graph
 
 Endpoints:
   POST /api/analyze         - Full agentic system analysis
@@ -120,6 +120,21 @@ except Exception as e:
     HAS_MEMORY = False
     print(f"[WARN] Autonomous memory import failed: {e}")
 
+# Proactive Monitor Engine
+try:
+    from proactive_monitor import ProactiveMonitor
+    HAS_PROACTIVE = True
+except Exception as e:
+    HAS_PROACTIVE = False
+    print(f"[WARN] Proactive monitor import failed: {e}")
+
+# Provider status (v14)
+try:
+    from multi_model_router import get_provider_status
+    HAS_PROVIDER_STATUS = True
+except Exception:
+    HAS_PROVIDER_STATUS = False
+
 # ═══════════════════════════════════════════════════════════════
 # APP SETUP
 # ═══════════════════════════════════════════════════════════════
@@ -127,7 +142,7 @@ except Exception as e:
 app = FastAPI(
     title="Meteoro X — Autonomous Intelligence",
     description="AI-Native Autonomous Commodity Intelligence | Agentic System | Industry Knowledge Graph",
-    version="13.1.0",
+    version="14.0.0",
 )
 
 app.add_middleware(
@@ -161,6 +176,29 @@ def get_swarm():
     if swarm_instance is None and HAS_SWARM:
         swarm_instance = MeteorSwarm()
     return swarm_instance
+
+
+# ═══════════════════════════════════════════════════════════════
+# PROACTIVE ENGINE STARTUP
+# Auto-start the proactive monitoring engine when the server boots.
+# This makes the system autonomous — it doesn't wait for commands.
+# ═══════════════════════════════════════════════════════════════
+
+@app.on_event("startup")
+async def startup_proactive_engine():
+    """Auto-start proactive intelligence engine on server boot."""
+    if HAS_PROACTIVE:
+        try:
+            from proactive_monitor import start_proactive_engine
+            started = start_proactive_engine()
+            if started:
+                print("[PROACTIVE] ═══ Autonomous monitoring engine ACTIVE ═══")
+            else:
+                print("[PROACTIVE] Engine failed to start")
+        except Exception as e:
+            print(f"[PROACTIVE] Startup error: {e}")
+    else:
+        print("[PROACTIVE] Engine not available — running in reactive mode only")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -592,7 +630,7 @@ async def health():
     return {
         "status": "operational",
         "system": "Meteoro X Autonomous Intelligence",
-        "version": "13.1.0",
+        "version": "14.0.0",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "swarm_active": HAS_SWARM,
         "knowledge_graph": HAS_KNOWLEDGE,
@@ -609,10 +647,12 @@ async def health():
             "correspondents_network": HAS_CORRESPONDENTS,
         },
         "active_providers": active_models,
+        "total_providers": 6,
         "data_sources": 8,
         "signals_generated": len(signal_history),
         "cost_summary": cost,
         "memory_active": memory_instance is not None,
+        "proactive_engine": HAS_PROACTIVE,
         "uptime": "active",
     }
 
@@ -869,7 +909,7 @@ async def diagnostics():
 
         return {
             "status": "ok",
-            "version": "11.0.0",
+            "version": "14.0.0",
             "providers": provider_status,
             "active_models": list(models),
             "active_providers": list(providers),
@@ -877,8 +917,68 @@ async def diagnostics():
             "total_agents": len(routing),
             "cost_summary": cost,
             "swarm_active": HAS_SWARM,
+            "proactive_engine": HAS_PROACTIVE,
             "data_sources_active": HAS_MARKET_DATA if 'HAS_MARKET_DATA' in dir() else "unknown",
         }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/api/providers")
+async def provider_status_endpoint():
+    """Detailed provider status — health, cost, specialization."""
+    if HAS_PROVIDER_STATUS:
+        return {
+            "status": "ok",
+            "providers": get_provider_status(),
+            "total": 6,
+            "env_keys_needed": [
+                "ANTHROPIC_API_KEY", "DEEPSEEK_API_KEY", "KIMI_API_KEY",
+                "GEMINI_API_KEY", "OPENAI_API_KEY", "GROQ_API_KEY"
+            ],
+        }
+    return {"error": "Provider status not available"}
+
+
+# ── PROACTIVE MONITOR ENDPOINTS ──────────────────────────────
+
+@app.get("/api/proactive/status")
+async def proactive_status():
+    """Status of the proactive monitoring engine."""
+    if not HAS_PROACTIVE:
+        return {"active": False, "reason": "ProactiveMonitor not loaded"}
+    try:
+        monitor = ProactiveMonitor.get_instance()
+        return monitor.get_status()
+    except Exception as e:
+        return {"active": False, "error": str(e)}
+
+
+@app.post("/api/proactive/trigger")
+async def proactive_trigger(commodity: Optional[str] = None):
+    """Manually trigger a proactive analysis cycle."""
+    if not HAS_PROACTIVE:
+        return {"error": "ProactiveMonitor not loaded"}
+    try:
+        monitor = ProactiveMonitor.get_instance()
+        if commodity:
+            result = await monitor.analyze_commodity(commodity)
+            return {"triggered": True, "commodity": commodity, "signal": result}
+        else:
+            asyncio.create_task(monitor.run_cycle())
+            return {"triggered": True, "commodity": "all_watchlist"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/api/proactive/signals")
+async def proactive_signals():
+    """Get recent proactive signals."""
+    if not HAS_PROACTIVE:
+        return {"signals": [], "reason": "ProactiveMonitor not loaded"}
+    try:
+        monitor = ProactiveMonitor.get_instance()
+        return {"signals": monitor.get_recent_signals(), "count": len(monitor.recent_signals)}
     except Exception as e:
         return {"error": str(e)}
 
