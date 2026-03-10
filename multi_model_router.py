@@ -569,13 +569,13 @@ async def call_llm(
                         _mark_provider_failed(profile.provider.value, str(e)[:100])
                         break
 
-                    # Rate limit — retry with backoff
+                    # Rate limit — DON'T retry same provider, move to next in chain
+                    # This is critical: retrying 429 wastes time; the next provider
+                    # in the fallback chain is likely available immediately.
                     is_429 = "429" in err_str or "rate" in err_str or "too many" in err_str
-                    if is_429 and retry < MAX_RETRIES - 1:
-                        wait = RETRY_BASE_DELAY * (2 ** retry)
-                        logger.info(f"[{agent_name}] {model_key} rate-limited — retry {retry+1}/{MAX_RETRIES} in {wait:.0f}s")
-                        await asyncio.sleep(wait)
-                        continue
+                    if is_429:
+                        logger.info(f"[{agent_name}] {model_key} rate-limited — skipping to next provider")
+                        break  # Move to next provider in fallback chain
                     else:
                         logger.warning(f"[{agent_name}] {model_key} failed: {str(e)[:80]}")
                         break

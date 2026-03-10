@@ -354,7 +354,7 @@ class MeteorSwarm:
     """
 
     TIME_BUDGET_MS = 120_000  # 120 seconds total
-    AGENT_TIMEOUT_MS = 25_000  # 25 seconds per agent (Groq: 3-8s, retries: 3s+6s backoff)
+    AGENT_TIMEOUT_MS = 30_000  # 30 seconds per agent (allows fallback: Groq→Gemini in ~15s)
     AGENT_SPACING_S = 4.0  # seconds between sequential calls (Gemini 15 RPM = 1 req/4s)
 
     def __init__(self):

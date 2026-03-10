@@ -187,18 +187,12 @@ def get_swarm():
 @app.on_event("startup")
 async def startup_proactive_engine():
     """Auto-start proactive intelligence engine on server boot."""
-    if HAS_PROACTIVE:
-        try:
-            from proactive_monitor import start_proactive_engine
-            started = start_proactive_engine()
-            if started:
-                print("[PROACTIVE] ═══ Autonomous monitoring engine ACTIVE ═══")
-            else:
-                print("[PROACTIVE] Engine failed to start")
-        except Exception as e:
-            print(f"[PROACTIVE] Startup error: {e}")
-    else:
-        print("[PROACTIVE] Engine not available — running in reactive mode only")
+    # TEMPORARILY DISABLED: Proactive engine consumes Groq free tier rate limit
+    # (30 RPM). With only 2 active providers, the proactive engine eats all
+    # the tokens before user-triggered analyses can run.
+    # Re-enable once we have 3+ paid providers with higher rate limits.
+    print("[PROACTIVE] ═══ Engine PAUSED — rate limit conservation mode ═══")
+    print("[PROACTIVE] Will re-enable with 3+ paid providers")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -868,7 +862,7 @@ async def get_latency_stats():
 @app.get("/api/ping")
 async def ping():
     """Lightweight keep-alive endpoint — used by background self-ping to prevent Render from sleeping."""
-    return {"pong": True, "ts": time.time(), "build": "v14.2-fix3"}
+    return {"pong": True, "ts": time.time(), "build": "v14.3-429fix"}
 
 
 @app.get("/api/diagnostics")
