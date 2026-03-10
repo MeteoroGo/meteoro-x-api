@@ -539,25 +539,24 @@ RULES:
 
 {full_context}
 
-Respond with ONLY this JSON (no text before or after):
+CRITICAL: Respond with ONLY valid JSON. The "dimensions" object is MANDATORY — do NOT omit it.
 {{
   "signal": "BUY or SELL or HOLD",
   "confidence": 0-100,
-  "reasoning": "3-4 sentences synthesizing key findings across dimensions with specific numbers",
   "dimensions": {{
-    "supply": {{"signal": "BUY/SELL/HOLD", "score": 0-100, "finding": "1 sentence"}},
-    "demand": {{"signal": "BUY/SELL/HOLD", "score": 0-100, "finding": "1 sentence"}},
-    "macro": {{"signal": "BUY/SELL/HOLD", "score": 0-100, "finding": "1 sentence"}},
-    "geopolitical": {{"signal": "BUY/SELL/HOLD", "score": 0-100, "finding": "1 sentence"}},
-    "technical": {{"signal": "BUY/SELL/HOLD", "score": 0-100, "finding": "1 sentence"}},
-    "sentiment": {{"signal": "BUY/SELL/HOLD", "score": 0-100, "finding": "1 sentence"}},
-    "latam": {{"signal": "BUY/SELL/HOLD", "score": 0-100, "finding": "1 sentence"}}
+    "supply": {{"signal": "BUY/SELL/HOLD", "score": 0-100, "finding": "1 sentence with data"}},
+    "demand": {{"signal": "BUY/SELL/HOLD", "score": 0-100, "finding": "1 sentence with data"}},
+    "macro": {{"signal": "BUY/SELL/HOLD", "score": 0-100, "finding": "1 sentence with data"}},
+    "geopolitical": {{"signal": "BUY/SELL/HOLD", "score": 0-100, "finding": "1 sentence with data"}},
+    "technical": {{"signal": "BUY/SELL/HOLD", "score": 0-100, "finding": "1 sentence with data"}},
+    "sentiment": {{"signal": "BUY/SELL/HOLD", "score": 0-100, "finding": "1 sentence with data"}},
+    "latam": {{"signal": "BUY/SELL/HOLD", "score": 0-100, "finding": "1 sentence with data"}}
   }},
-  "key_finding": "THE single most important insight with a specific number",
+  "reasoning": "2-3 sentences with key numbers",
+  "key_finding": "Most important insight with a specific number",
   "entry_price": 0.0,
   "stop_loss": 0.0,
   "take_profit": 0.0,
-  "risk_reward_ratio": 0.0,
   "sources_analyzed": 8
 }}"""
 
