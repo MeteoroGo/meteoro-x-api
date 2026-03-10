@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ╔══════════════════════════════════════════════════════════════════╗
-║  METEORO SWARM v11 — Autonomous Commodity Intelligence            ║
+║  METEORO SWARM v12 — Autonomous Commodity Intelligence            ║
 ║  Agentic System | Multi-Model Router | Industry Knowledge Graph   ║
 ║                                                                    ║
 ║  FLOW:                                                            ║
@@ -356,7 +356,7 @@ class MeteorSwarm:
         session_id = str(uuid.uuid4().hex[:8])
 
         print(f"\n{'='*70}")
-        print(f"METEORO SWARM v11 — AUTONOMOUS INTELLIGENCE — {session_id}")
+        print(f"METEORO SWARM v12 — AUTONOMOUS INTELLIGENCE — {session_id}")
         print(f"Commodity: {commodity}")
         print(f"{'='*70}\n")
 

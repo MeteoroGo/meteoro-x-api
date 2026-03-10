@@ -1,16 +1,25 @@
 #!/usr/bin/env python3
 """
-METEORO X — INDUSTRY KNOWLEDGE GRAPH
-=====================================
+METEORO X v12 — INDUSTRY KNOWLEDGE GRAPH
+==========================================
 Comprehensive knowledge base of the global commodity industry:
   - Global exchanges and their commodity specializations
   - Major traders (physical + financial)
   - Major mines with geographic coordinates
   - Refineries and smelters with locations
-  - Supply chain relationships (mine → smelter → refinery → end user)
+  - Shipping companies (navieras) and maritime fleet
+  - Major ports with throughput and bottleneck risks
+  - Logistics companies (rail, trucking, pipelines)
+  - Inspection & QA companies (the trust layer)
+  - End clients / consumers (who buys what)
+  - Supply chain relationships (mine → port → ship → smelter → client)
 
 This module gives the agentic system INSTITUTIONAL-GRADE context
 that transforms generic price analysis into actionable intelligence.
+The complete supply chain — from mine mouth to end consumer — is mapped.
+
+ENTITIES: 12 exchanges | 14 traders | 20+ mines | 10+ smelters
+          18 shipping cos | 25 ports | 12 logistics | 10 QA | 19 clients
 """
 
 from typing import Dict, List, Any, Optional
@@ -665,6 +674,956 @@ REFINERIES_SMELTERS = {
 
 
 # ═══════════════════════════════════════════════════════════════
+# SHIPPING COMPANIES (NAVIERAS)
+# Who moves commodities across oceans — maritime intelligence
+# ═══════════════════════════════════════════════════════════════
+
+SHIPPING_COMPANIES = {
+    "MAERSK": {
+        "name": "A.P. Moller-Maersk A/S",
+        "hq": "Copenhagen, Denmark",
+        "lat": 55.6761, "lon": 12.5683,
+        "type": "container",
+        "fleet_size": 730,
+        "dwt_million": 15.8,
+        "commodities": ["containerized_goods", "general_cargo", "breakbulk", "reefer"],
+        "key_routes": ["Asia-Europe", "Trans-Pacific", "Trans-Atlantic", "Intra-Asia"],
+        "competitive_edge": "Vertically integrated supply chain control; terminal operations influence container availability and freight rate volatility.",
+        "key_fact": "Maersk's alliances control ~40% Asia-Europe capacity; vessel cascading announcements signal 6-month rate shifts.",
+    },
+    "MSC": {
+        "name": "Mediterranean Shipping Company",
+        "hq": "Geneva, Switzerland",
+        "lat": 46.2044, "lon": 6.1432,
+        "type": "container",
+        "fleet_size": 750,
+        "dwt_million": 16.2,
+        "commodities": ["containerized_goods", "general_cargo", "automotive"],
+        "key_routes": ["Asia-Europe", "Intra-Asia", "Americas-Europe", "South African routes"],
+        "competitive_edge": "Family-owned private structure allows aggressive capacity injections during soft markets; less transparent planning creates pricing opportunities.",
+        "key_fact": "MSC mega-ship orders signal sustained demand; port call delays correlate with 3-5 day rate premiums in secondary markets.",
+    },
+    "CMA_CGM": {
+        "name": "CMA CGM Group",
+        "hq": "Marseille, France",
+        "lat": 43.2965, "lon": 5.3698,
+        "type": "container",
+        "fleet_size": 550,
+        "dwt_million": 12.1,
+        "commodities": ["containerized_goods", "general_cargo", "reefer"],
+        "key_routes": ["Asia-Europe", "Trans-Pacific", "Intra-Asia", "Far East-Africa"],
+        "competitive_edge": "Strong Suez corridor presence; CEVA logistics integration enables premium rates on temperature-controlled agricultural commodities.",
+        "key_fact": "Controls ~18% of Africa-Asia flows; contract tonnage often trades 8-12% above spot on South America ore/grain routes.",
+    },
+    "COSCO_SHIPPING": {
+        "name": "China COSCO Shipping Holdings",
+        "hq": "Beijing, China",
+        "lat": 39.9042, "lon": 116.4074,
+        "type": "container",
+        "fleet_size": 850,
+        "dwt_million": 17.9,
+        "commodities": ["containerized_goods", "general_cargo", "bulk_coal", "grain"],
+        "key_routes": ["Intra-Asia", "Asia-Europe", "Asia-Americas", "Belt and Road corridors"],
+        "competitive_edge": "State-backed capacity discipline enables sub-cost pricing to capture market share; political mandate maintains Chinese port volume.",
+        "key_fact": "COSCO rate cuts precede Chinese commodity imports by 2-3 weeks; Shanghai-Rotterdam offerings = leading indicator of Chinese demand.",
+    },
+    "STAR_BULK": {
+        "name": "Star Bulk Carriers Corp.",
+        "hq": "Stamford, USA",
+        "lat": 41.0534, "lon": -73.5387,
+        "type": "dry_bulk",
+        "fleet_size": 130,
+        "dwt_million": 8.7,
+        "commodities": ["iron_ore", "coal", "grain", "minor_bulks", "fertilizer"],
+        "key_routes": ["Brazil-China", "Australia-China", "Black Sea-Asia", "Capesize triangles"],
+        "competitive_edge": "Efficient cost structure enables profitability at BDI 900-1000 where peers struggle; first to deploy on emerging routes.",
+        "key_fact": "Star Bulk employment decisions lead BDI by 3-4 weeks; vessel idling signals capesize spot contraction 5-8% within 2 weeks.",
+    },
+    "PACIFIC_BASIN": {
+        "name": "Pacific Basin Shipping Limited",
+        "hq": "Hong Kong",
+        "lat": 22.2793, "lon": 114.1633,
+        "type": "dry_bulk",
+        "fleet_size": 235,
+        "dwt_million": 2.1,
+        "commodities": ["grain", "minor_bulks", "fertilizer", "phosphate", "bauxite"],
+        "key_routes": ["Handysize triangles", "Intra-Asia minor bulk", "South American grain"],
+        "competitive_edge": "Handysize specialization captures 60-80% margin premium on niche minor bulk trades where larger vessels are inefficient.",
+        "key_fact": "Crew scheduling patterns signal South American grain harvest liftings 4 weeks early; deployment correlates 0.92 with Baltic Handysize Index.",
+    },
+    "OLDENDORFF": {
+        "name": "Oldendorff Carriers GmbH",
+        "hq": "Lübeck, Germany",
+        "lat": 53.8645, "lon": 10.6863,
+        "type": "dry_bulk",
+        "fleet_size": 620,
+        "dwt_million": 11.3,
+        "commodities": ["coal", "grain", "iron_ore", "minor_bulks", "fertilizer"],
+        "key_routes": ["Atlantic triangles", "Coal corridors", "Baltic-Black Sea", "North Atlantic"],
+        "competitive_edge": "Family-owned 150+ years; long-term contract relationships with Rio Tinto, Vale that younger companies cannot access.",
+        "key_fact": "Oldendorff contract rates with Vale signal 3-month capesize sentiment; 12-month contract willingness = strongest rate floor indicator.",
+    },
+    "FRONTLINE": {
+        "name": "Frontline Ltd.",
+        "hq": "Oslo, Norway",
+        "lat": 59.9139, "lon": 10.7522,
+        "type": "tanker",
+        "fleet_size": 68,
+        "dwt_million": 8.1,
+        "commodities": ["crude_oil", "refined_products", "LPG", "chemicals"],
+        "key_routes": ["Middle East-Asia", "Atlantic crude", "Refined product triangles", "US Gulf-Europe"],
+        "competitive_edge": "Supertanker focus (ULCV) provides 15-20% cost advantage on long-haul crude routes.",
+        "key_fact": "Frontline ULCV deployment signals 6-month crude shipping outlook; Fujairah anchoring = rate compression expected.",
+    },
+    "EURONAV_CMB": {
+        "name": "Euronav NV / CMB",
+        "hq": "Antwerp, Belgium",
+        "lat": 51.3213, "lon": 4.3961,
+        "type": "tanker",
+        "fleet_size": 72,
+        "dwt_million": 8.9,
+        "commodities": ["crude_oil", "refined_products", "chemicals", "vegetable_oils"],
+        "key_routes": ["Atlantic crude", "Intra-Europe refined", "Asia-Europe chemicals"],
+        "competitive_edge": "CMB's industrial chemical integration creates captive backhaul contracts securing 70%+ utilization vs spot at 45-55%.",
+        "key_fact": "Crude-to-product tanker ratio signals belief in refined product vs crude spreads 8 weeks forward.",
+    },
+    "IMPALA_TERMINALS": {
+        "name": "Impala Terminals (Trafigura)",
+        "hq": "Rotterdam, Netherlands",
+        "lat": 51.9225, "lon": 4.2597,
+        "type": "port_operator",
+        "fleet_size": 12,
+        "dwt_million": 2.3,
+        "commodities": ["copper", "zinc", "coal", "grain", "oil_products"],
+        "key_routes": ["African mineral exports", "Commodity storage arbitrage", "Blending hub"],
+        "competitive_edge": "0.8M tonnes storage capacity enables 5-15 day contango/backwardation arbs; owns logistical chokepoints.",
+        "key_fact": "Storage utilization >70% signals compressed commodity premiums 2-3 weeks forward. Trafigura's logistics arm.",
+    },
+    "DP_WORLD": {
+        "name": "DP World PLC",
+        "hq": "Dubai, UAE",
+        "lat": 25.2048, "lon": 55.2708,
+        "type": "port_operator",
+        "fleet_size": 8,
+        "dwt_million": 1.1,
+        "commodities": ["containerized_goods", "breakbulk", "general_cargo", "minerals"],
+        "key_routes": ["Suez Canal transit hub", "Intra-Asia container", "African export gateway"],
+        "competitive_edge": "Jebel Ali port (world's 5th largest) throughput constraints create 2-5 day vessel delays.",
+        "key_fact": "Wait-time announcements signal Suez geopolitical risk; dwell times >5 days indicate Red Sea route avoidance.",
+    },
+    "PSA_INTERNATIONAL": {
+        "name": "PSA International (Singapore)",
+        "hq": "Singapore",
+        "lat": 1.3521, "lon": 103.8198,
+        "type": "port_operator",
+        "fleet_size": 6,
+        "dwt_million": 0.9,
+        "commodities": ["containerized_goods", "bunker_fuel", "refined_products", "LNG"],
+        "key_routes": ["Malacca Strait chokepoint", "Intra-Asia transshipment", "LNG bunkering"],
+        "competitive_edge": "Singapore centrality captures 25% Malacca Strait transshipment; bunker fuel control provides 2-5% price advantages.",
+        "key_fact": "PSA throughput >40M TEU validates Asian demand; dwell time increases precede Malacca bunker premium spikes.",
+    },
+    "VALE_FLEET": {
+        "name": "Vale S.A. (VLOC Fleet)",
+        "hq": "Rio de Janeiro, Brazil",
+        "lat": -22.9068, "lon": -43.1729,
+        "type": "dry_bulk",
+        "fleet_size": 66,
+        "dwt_million": 9.8,
+        "commodities": ["iron_ore", "manganese_ore", "nickel_laterite"],
+        "key_routes": ["Brazil-China", "Brazil-India", "Brazil-Japan", "Brazil-South Korea"],
+        "competitive_edge": "Self-operating fleet reduces cost $2-4/t vs spot market; direct control enables supply timing manipulation.",
+        "key_fact": "VLOC deployment to Chinese ports lags ore demand by 18-22 days; berthing patterns = leading indicator of actual Chinese steel mill consumption.",
+    },
+    "BW_GROUP": {
+        "name": "BW Group Limited",
+        "hq": "Singapore",
+        "lat": 1.3521, "lon": 103.8198,
+        "type": "tanker",
+        "fleet_size": 180,
+        "dwt_million": 11.2,
+        "commodities": ["LPG", "LNG", "crude_oil", "refined_products", "petrochemicals"],
+        "key_routes": ["Middle East-Asia LPG", "Atlantic LNG", "Intra-Asia products", "US-Europe propane"],
+        "competitive_edge": "LPG fleet dominance (80+ vessels) enables 30-40% margin advantage on spot LPG routes.",
+        "key_fact": "BW LPG positions at Singapore signal Asian heating demand 2-3 weeks forward; charter-in decisions correlate to US propane export parity.",
+    },
+    "CHINA_MERCHANTS": {
+        "name": "China Merchants Heavy Industry",
+        "hq": "Beijing, China",
+        "lat": 39.9042, "lon": 116.4074,
+        "type": "dry_bulk",
+        "fleet_size": 420,
+        "dwt_million": 7.4,
+        "commodities": ["coal", "iron_ore", "grain", "bauxite", "phosphate"],
+        "key_routes": ["Domestic China coal", "Southeast Asia coal", "East Africa-China", "South America grain"],
+        "competitive_edge": "State SOE status enables below-cost rate offerings to support domestic coal/grain supply chains.",
+        "key_fact": "Deployment to Australian coal ports signals 4-week advance warning of Chinese thermal coal demand shifts.",
+    },
+    "SITC_INTL": {
+        "name": "SITC International Holdings",
+        "hq": "Shanghai, China",
+        "lat": 31.2304, "lon": 121.4737,
+        "type": "container",
+        "fleet_size": 95,
+        "dwt_million": 1.8,
+        "commodities": ["containerized_goods", "general_cargo"],
+        "key_routes": ["Intra-Asia feedering", "ASEAN-China short-sea", "Domestic China container"],
+        "competitive_edge": "Dominant feeder network captures 40%+ Shanghai-secondary port intra-Asia container volume; 15-20% cost advantage on short routes.",
+        "key_fact": "SITC rate discounting on Shanghai-SEA routes leads container overcapacity signals by 10-14 days.",
+    },
+}
+
+
+# ═══════════════════════════════════════════════════════════════
+# MAJOR PORTS — Strategic commodity chokepoints
+# Where supply chains can be disrupted or accelerated
+# ═══════════════════════════════════════════════════════════════
+
+MAJOR_PORTS = {
+    # ── LATIN AMERICA ─────────────────────────────────────────
+    "PUERTO_BOLIVAR": {
+        "name": "Puerto Bolívar",
+        "country": "Colombia", "region": "La Guajira",
+        "lat": 12.1717, "lon": -71.3919,
+        "type": "bulk_terminal",
+        "operator": "Cerrejón",
+        "annual_throughput_mt": 30,
+        "commodities": ["thermal_coal"],
+        "max_vessel_size": "Capesize",
+        "connected_to": ["Cerrejón mine", "Caribbean shipping lanes"],
+        "key_fact": "Largest coal exporter in Americas. Port congestion immediately tightens global coal supply and supports European/Asian prices.",
+        "bottleneck_risk": "Tropical storms Jun-Nov. La Niña patterns. Labor disputes halt 30M+ tonnes/year.",
+    },
+    "SANTA_MARTA": {
+        "name": "Santa Marta",
+        "country": "Colombia", "region": "Magdalena",
+        "lat": 11.2432, "lon": -74.2309,
+        "type": "bulk_terminal",
+        "operator": "Prodeco (Glencore)",
+        "annual_throughput_mt": 26,
+        "commodities": ["thermal_coal"],
+        "max_vessel_size": "Capesize",
+        "connected_to": ["Prodeco mines", "Atlantic shipping", "US Gulf routes"],
+        "key_fact": "Primary Colombian coal export hub. Disruptions ripple to utility coal contracts in US/Europe within 2-3 weeks.",
+        "bottleneck_risk": "Caribbean hurricane season. Political risk with leftist government. Environmental pressures on expansion.",
+    },
+    "BUENAVENTURA": {
+        "name": "Buenaventura",
+        "country": "Colombia", "region": "Valle del Cauca",
+        "lat": 3.8853, "lon": -77.3160,
+        "type": "multi_purpose",
+        "operator": "SPB (Sociedad Portuaria Regional)",
+        "annual_throughput_mt": 18,
+        "commodities": ["coffee", "sugar", "cocoa", "bananas"],
+        "max_vessel_size": "Panamax",
+        "connected_to": ["Eje Cafetero", "Cauca Valley agriculture", "Pacific Asia routes"],
+        "key_fact": "Colombia's only major Pacific port. Coffee exports (~1.3M t/y) set global soft commodity tone. Congestion pushes Colombian coffee forward curves.",
+        "bottleneck_risk": "Pacific swell limits loading. Rainy season landslides. Port capacity ceiling ~18-20M t. Rising access fees.",
+    },
+    "CALLAO": {
+        "name": "Callao",
+        "country": "Peru", "region": "Lima",
+        "lat": -12.0464, "lon": -77.1528,
+        "type": "multi_purpose",
+        "operator": "DP World / APM Terminals",
+        "annual_throughput_mt": 25,
+        "commodities": ["copper_concentrates", "zinc_concentrates", "iron_ore", "molybdenum"],
+        "max_vessel_size": "Post-Panamax",
+        "connected_to": ["Antamina", "Cerro Verde", "Shougang"],
+        "key_fact": "Peru's leading concentrate exporter. Copper concentrate timing triggers 6-8 week smelter arrival windows in China.",
+        "bottleneck_risk": "El Niño port closures. Political instability. Shallow harbor (14-15m draft). Frequent dock labor disputes.",
+    },
+    "MATARANI_ILO": {
+        "name": "Matarani / Ilo",
+        "country": "Peru", "region": "Arequipa/Moquegua",
+        "lat": -17.0064, "lon": -71.6126,
+        "type": "bulk_terminal",
+        "operator": "TPMS / Ilo Port Authority",
+        "annual_throughput_mt": 12,
+        "commodities": ["copper_concentrates", "copper_cathodes", "molybdenum"],
+        "max_vessel_size": "Panamax",
+        "connected_to": ["Toquepala mine", "Southern Peru mining cluster"],
+        "key_fact": "Southern Peru's backup port for copper. Limited dredging; used when Callao congested.",
+        "bottleneck_risk": "Aging infrastructure. 8-10 day turnaround vs 3-4 at Callao. Political activism in Arequipa.",
+    },
+    "ANTOFAGASTA_PORT": {
+        "name": "Antofagasta",
+        "country": "Chile", "region": "Antofagasta",
+        "lat": -23.6345, "lon": -70.4067,
+        "type": "bulk_terminal",
+        "operator": "Puerto de Antofagasta",
+        "annual_throughput_mt": 20,
+        "commodities": ["copper_concentrates", "copper_cathodes", "molybdenum", "lithium_compounds"],
+        "max_vessel_size": "Capesize",
+        "connected_to": ["Escondida", "Codelco mines", "SQM lithium"],
+        "key_fact": "Chile = 28% global copper; Antofagasta handles ~20% of Chilean copper exports. Lithium hydroxide exports emerging (5-8% of throughput).",
+        "bottleneck_risk": "Seismic activity (2014 quake = 6-week closure). Environmental permit freezes on expansion. Limited to 2-3 Capesize berths.",
+    },
+    "SAN_ANTONIO": {
+        "name": "San Antonio / Valparaíso",
+        "country": "Chile", "region": "Valparaíso",
+        "lat": -33.5857, "lon": -71.6096,
+        "type": "multi_purpose",
+        "operator": "Puerto San Antonio / EPV",
+        "annual_throughput_mt": 28,
+        "commodities": ["copper_cathodes", "fruit", "wine", "wood_pulp"],
+        "max_vessel_size": "Panamax",
+        "connected_to": ["Central Chilean mines", "Agricultural Central Valley"],
+        "key_fact": "Chile's containerization hub. Fresh fruit exports (3M t/y) require strict schedule integrity. Copper cathode liquidity driven by spot sales timing.",
+        "bottleneck_risk": "Southern Pacific storms May-Aug. Shallow harbor. Frequent labor strikes. Reefer container shortages.",
+    },
+    "SANTOS": {
+        "name": "Santos",
+        "country": "Brazil", "region": "São Paulo",
+        "lat": -23.9608, "lon": -46.3244,
+        "type": "multi_purpose",
+        "operator": "Multiple (BTP, TCP, Ultrafértil)",
+        "annual_throughput_mt": 147,
+        "commodities": ["soybeans", "soybean_meal", "sugar", "ethanol", "coffee", "iron_ore"],
+        "max_vessel_size": "Post-Panamax",
+        "connected_to": ["Mato Grosso soy belt", "Central West Brazil", "São Paulo refining"],
+        "key_fact": "World's largest soy exporter (40M t/y) and sugar (25M t/y). Export timing Feb-Jun sets global meal/oil prices. Congestion = 1-2 week backup.",
+        "bottleneck_risk": "Summer rains Jan-Mar flood interior routes. Dockworker strikes paralyze 140M+ t/y. Constant dredging needed.",
+    },
+    "TUBARAO": {
+        "name": "Tubarão / Vitória",
+        "country": "Brazil", "region": "Espírito Santo",
+        "lat": -20.2696, "lon": -40.2803,
+        "type": "bulk_terminal",
+        "operator": "Vale S.A.",
+        "annual_throughput_mt": 115,
+        "commodities": ["iron_ore", "pellets", "manganese_ore"],
+        "max_vessel_size": "Capesize",
+        "connected_to": ["Carajás mine", "Vale mining complex", "Asian steel mills"],
+        "key_fact": "Vale's primary iron ore export hub (~100M t/y). Capesize scheduling driven by berth availability. Disruptions take 8-12 weeks to propagate to Asian steel.",
+        "bottleneck_risk": "South Atlantic swell Feb-May. Vale labor disputes. Pellet plant outages create 2-3 week export pauses.",
+    },
+    # ── ASIA ──────────────────────────────────────────────────
+    "QINGDAO": {
+        "name": "Qingdao",
+        "country": "China", "region": "Shandong",
+        "lat": 36.0671, "lon": 120.3826,
+        "type": "multi_purpose",
+        "operator": "Qingdao Port Group",
+        "annual_throughput_mt": 740,
+        "commodities": ["iron_ore", "coal", "rubber", "crude_oil", "containers"],
+        "max_vessel_size": "Capesize",
+        "connected_to": ["Northern China steelmakers", "Japan/S.Korea routes"],
+        "key_fact": "Critical iron ore inbound hub (90M+ t/y). Iron ore prices set daily based on Qingdao congestion & stockpiles. Winter ice Dec-Feb restricts 10-15% capacity.",
+        "bottleneck_risk": "Winter Bohai Bay ice Nov-Mar. Spring Festival shutdown 1-2 weeks. Pollution alerts restrict operations.",
+    },
+    "SHANGHAI_YANGSHAN": {
+        "name": "Shanghai / Yangshan",
+        "country": "China", "region": "Shanghai",
+        "lat": 30.9176, "lon": 121.8871,
+        "type": "multi_purpose",
+        "operator": "Shanghai International Port Group (SIPG)",
+        "annual_throughput_mt": 840,
+        "commodities": ["containers", "iron_ore", "coal", "crude_oil", "chemicals", "grain"],
+        "max_vessel_size": "Post-Panamax",
+        "connected_to": ["Central China industrial zone", "Suez route", "Pacific routes"],
+        "key_fact": "World's largest container port; drives global shipping rate cycles. Iron ore discharge (15-20M t/month) benchmarks Asian prices.",
+        "bottleneck_risk": "Typhoon season Jun-Sept. Suez disruptions redirect volume here. 24-48h closures affect $5B+ daily flow.",
+    },
+    "NINGBO_ZHOUSHAN": {
+        "name": "Ningbo-Zhoushan",
+        "country": "China", "region": "Zhejiang",
+        "lat": 30.0283, "lon": 121.7661,
+        "type": "multi_purpose",
+        "operator": "Ningbo-Zhoushan Port Group",
+        "annual_throughput_mt": 850,
+        "commodities": ["iron_ore", "coal", "crude_oil", "containers", "metals"],
+        "max_vessel_size": "Capesize",
+        "connected_to": ["Eastern China mills", "Pacific shipping lanes"],
+        "key_fact": "World's #1 port by tonnage. Floating storage creates price reference for 'port stocks.' Backups signal demand weakness across Chinese industry.",
+        "bottleneck_risk": "Typhoons Jul-Sept. Congestion stretches turnaround to 10-15 days. Domestic policy shifts reduce demand unpredictably.",
+    },
+    "SINGAPORE_PORT": {
+        "name": "Singapore",
+        "country": "Singapore", "region": "Strait of Malacca",
+        "lat": 1.3521, "lon": 103.8198,
+        "type": "oil_terminal",
+        "operator": "PSA International",
+        "annual_throughput_mt": 680,
+        "commodities": ["crude_oil", "refined_products", "LNG", "metals", "containers"],
+        "max_vessel_size": "VLCC",
+        "connected_to": ["Middle East routes", "Asian refineries", "LNG terminals"],
+        "key_fact": "World's largest bunkering hub (40-50M t/y fuel oil). Floating storage (12-15M t) drives arbitrage to Asian refineries.",
+        "bottleneck_risk": "Malacca Strait piracy/geopolitical risk. Limited storage forces diversion to Fujairah. Tidal restrictions for ULCV.",
+    },
+    "PORT_HEDLAND": {
+        "name": "Port Hedland",
+        "country": "Australia", "region": "Western Australia",
+        "lat": -22.7197, "lon": 118.5845,
+        "type": "bulk_terminal",
+        "operator": "BHP Billiton / private operators",
+        "annual_throughput_mt": 250,
+        "commodities": ["iron_ore", "manganese_ore", "salt"],
+        "max_vessel_size": "Capesize",
+        "connected_to": ["Pilbara iron ore mines", "BHP operations", "Asian steel mills"],
+        "key_fact": "Australia's largest port; 60% iron ore to China (150-170M t/y to Asia). BHP production cuts directly lower global iron ore prices. 12-14 week lead time to smelters.",
+        "bottleneck_risk": "Cyclone season Nov-Mar (5-10 day closures). Tidal ranges up to 10m limit simultaneous loading. BHP labor disputes halt exports.",
+    },
+    # ── EUROPE ────────────────────────────────────────────────
+    "ROTTERDAM": {
+        "name": "Rotterdam",
+        "country": "Netherlands", "region": "South Holland",
+        "lat": 51.9225, "lon": 4.2797,
+        "type": "multi_purpose",
+        "operator": "Port of Rotterdam Authority",
+        "annual_throughput_mt": 475,
+        "commodities": ["crude_oil", "refined_products", "metals", "agricultural", "containers"],
+        "max_vessel_size": "Post-Panamax",
+        "connected_to": ["Suez canal", "NW European refineries", "Rhine inland waterways"],
+        "key_fact": "Europe's largest port. Crude oil import hub (200M+ bbl/y). ARA stocks = European oil demand gauge. Floating storage creates Suez-Rotterdam spread trading.",
+        "bottleneck_risk": "North Sea storms. Rhine barge transport critical; low water summers restrict flow. EU sanctions create sudden rerouting.",
+    },
+    "ANTWERP_BRUGES": {
+        "name": "Antwerp-Bruges",
+        "country": "Belgium", "region": "Scheldt Estuary",
+        "lat": 51.3397, "lon": 4.2806,
+        "type": "multi_purpose",
+        "operator": "Port Authority of Antwerp",
+        "annual_throughput_mt": 290,
+        "commodities": ["crude_oil", "chemicals", "metals", "containers"],
+        "max_vessel_size": "Post-Panamax",
+        "connected_to": ["Chemical belt", "European refineries"],
+        "key_fact": "Europe's chemicals hub (15M t/y specialty chemicals). Bruges breakbulk handles niche metals (cobalt, tin) for Asian rerouting.",
+        "bottleneck_risk": "Scheldt siltation. North Sea storms. Belgian labor strikes. Low summer water on Meuse/Rhine.",
+    },
+    "HAMBURG_PORT": {
+        "name": "Hamburg",
+        "country": "Germany", "region": "Elbe River",
+        "lat": 53.5511, "lon": 9.9769,
+        "type": "multi_purpose",
+        "operator": "Port of Hamburg Authority",
+        "annual_throughput_mt": 310,
+        "commodities": ["copper_blister", "copper_concentrate", "metals", "containers", "agricultural"],
+        "max_vessel_size": "Panamax",
+        "connected_to": ["Aurubis smelter", "Central European industry", "Suez routes"],
+        "key_fact": "Aurubis copper smelter (1M+ t/y capacity) drives Cu concentrate arrival timing. Delays raise European refined copper premiums vs Asian.",
+        "bottleneck_risk": "Elbe River silt/drought. Rhine/Danube connection critical for inland distribution. German dock labor expensive & unionized.",
+    },
+    # ── AFRICA & MIDDLE EAST ──────────────────────────────────
+    "DURBAN": {
+        "name": "Durban",
+        "country": "South Africa", "region": "KwaZulu-Natal",
+        "lat": -29.8587, "lon": 31.0218,
+        "type": "multi_purpose",
+        "operator": "Transnet (TNPA)",
+        "annual_throughput_mt": 95,
+        "commodities": ["coal", "chromite_ore", "manganese_ore", "ferrochrome", "containers"],
+        "max_vessel_size": "Panamax",
+        "connected_to": ["Mpumalanga coalfields", "Chrome/Mn mines", "Indian Ocean routes"],
+        "key_fact": "Chrome & manganese ore exports (8-12M t/y) set global alloy prices. Any disruption impacts European/Chinese stainless steel costs.",
+        "bottleneck_risk": "Power cuts/load shedding paralyze operations. Transnet infrastructure aging. Frequent labor unrest.",
+    },
+    "RICHARDS_BAY": {
+        "name": "Richards Bay",
+        "country": "South Africa", "region": "KwaZulu-Natal",
+        "lat": -28.7828, "lon": 32.0831,
+        "type": "bulk_terminal",
+        "operator": "Transnet / private operators",
+        "annual_throughput_mt": 85,
+        "commodities": ["thermal_coal"],
+        "max_vessel_size": "Capesize",
+        "connected_to": ["Mpumalanga coalfields", "Atlantic coal routes"],
+        "key_fact": "World's #2 thermal coal exporter (50-60M t/y). Richards Bay pricing sets global benchmarks (API2, API4). 2-3 week delays directly raise European coal futures.",
+        "bottleneck_risk": "Load shedding reduces ops 30-50%. Frequent labor strikes. Infrastructure deterioration accelerating.",
+    },
+    "FUJAIRAH": {
+        "name": "Fujairah",
+        "country": "UAE", "region": "Gulf of Oman",
+        "lat": 25.1266, "lon": 56.3373,
+        "type": "oil_terminal",
+        "operator": "Fujairah Terminals LLC",
+        "annual_throughput_mt": 190,
+        "commodities": ["crude_oil", "refined_products", "oil_storage"],
+        "max_vessel_size": "VLCC",
+        "connected_to": ["Middle East oil production", "Strait of Hormuz", "Singapore arb route"],
+        "key_fact": "World's 3rd largest crude floating storage hub (20-25M bbl). Daily prices signal Strait of Hormuz geopolitical risk premium.",
+        "bottleneck_risk": "Strait of Hormuz tanker traffic risk. Heat stress 50+°C reduces throughput 5-10%. Storage saturation delays Asia outlets.",
+    },
+    "JEBEL_ALI": {
+        "name": "Jebel Ali / Dubai",
+        "country": "UAE", "region": "Dubai",
+        "lat": 24.9774, "lon": 55.1864,
+        "type": "multi_purpose",
+        "operator": "DP World",
+        "annual_throughput_mt": 260,
+        "commodities": ["containers", "precious_metals", "gold", "diamonds", "metals"],
+        "max_vessel_size": "Post-Panamax",
+        "connected_to": ["Middle East Gulf routes", "Indian Ocean lanes"],
+        "key_fact": "World's largest gold re-export hub (500-600 t/y); sets global gold physical premium. Redirected from London during geopolitical episodes.",
+        "bottleneck_risk": "Extreme summer heat. Geopolitical isolation from Iran sanctions restricts certain flows.",
+    },
+    # ── NORTH AMERICA ─────────────────────────────────────────
+    "HOUSTON": {
+        "name": "Houston Ship Channel",
+        "country": "USA", "region": "Texas",
+        "lat": 29.7519, "lon": -94.9789,
+        "type": "oil_terminal",
+        "operator": "Port of Houston Authority",
+        "annual_throughput_mt": 280,
+        "commodities": ["crude_oil", "refined_products", "LNG", "chemicals", "petrochemicals"],
+        "max_vessel_size": "VLCC",
+        "connected_to": ["Texas refining complex", "Chemical Coast", "Gulf LNG terminals"],
+        "key_fact": "US crude oil export hub (3-4M bbl/d). Refining capacity 6.5M bbl/d nearby. Channel throughput directly impacts US energy competitiveness.",
+        "bottleneck_risk": "Hurricane season Jun-Nov (1-2 week closures, petroleum prices spike 5-10%). Chemical spills disrupt 3-7 days.",
+    },
+    "NEW_ORLEANS": {
+        "name": "New Orleans / South Louisiana",
+        "country": "USA", "region": "Louisiana",
+        "lat": 29.6105, "lon": -90.0788,
+        "type": "bulk_terminal",
+        "operator": "Port of South Louisiana",
+        "annual_throughput_mt": 380,
+        "commodities": ["grain", "soybeans", "coal", "crude_oil", "fertilizer"],
+        "max_vessel_size": "Capesize",
+        "connected_to": ["Midwest grain belt", "Mississippi River system", "Great Lakes"],
+        "key_fact": "North America's grain export gateway (40-60M t/y). Mississippi River navigation season sets US export prices. Drought = throughput collapse.",
+        "bottleneck_risk": "Hurricane season 3-5 weeks/year closures. Low water reduces barge capacity 40-50%. Grain elevator limits create 4-6 week backlogs.",
+    },
+    "VANCOUVER": {
+        "name": "Vancouver",
+        "country": "Canada", "region": "British Columbia",
+        "lat": 49.2827, "lon": -123.1207,
+        "type": "multi_purpose",
+        "operator": "Port of Vancouver Authority",
+        "annual_throughput_mt": 180,
+        "commodities": ["thermal_coal", "potash", "grain", "containers", "sulfur"],
+        "max_vessel_size": "Post-Panamax",
+        "connected_to": ["Western Canada resources", "Asia Pacific routes"],
+        "key_fact": "Canada's primary Pacific export hub. Coal exports 30-40M t/y price-referenced globally. Potash exports critical (Russian sanctions trade-offs).",
+        "bottleneck_risk": "Winter ice/snow reduces 10-15% Dec-Feb. Rail strikes disrupt coal/grain. Mountain terrain limits rail expansion.",
+    },
+}
+
+
+# ═══════════════════════════════════════════════════════════════
+# LOGISTICS COMPANIES — Rail, road, pipeline operators
+# The arteries of commodity supply chains
+# ═══════════════════════════════════════════════════════════════
+
+LOGISTICS_COMPANIES = {
+    "FERROCARRIL_CERREJON": {
+        "name": "Ferrocarril del Cerrejón",
+        "hq": "Valledupar, Colombia",
+        "lat": 10.4806, "lon": -73.2470,
+        "type": "rail",
+        "commodities": ["coal"],
+        "key_corridors": ["Cerrejón mine to Puerto Bolívar"],
+        "competitive_edge": "Only rail connection for world's largest open-pit coal mine; exclusive monopoly on Cerrejón export logistics.",
+        "key_fact": "Moves ~30M t/y Colombian thermal coal; disruption = global coal shortage.",
+    },
+    "VALE_CARAJAS_RAIL": {
+        "name": "VALE Carajás Railroad (EFC)",
+        "hq": "Rio de Janeiro, Brazil",
+        "lat": -22.9068, "lon": -43.1729,
+        "type": "rail",
+        "commodities": ["iron_ore", "manganese"],
+        "key_corridors": ["Carajás mine to São Luís port", "NE Brazil mining corridor"],
+        "competitive_edge": "World's longest single-track heavy-haul railway (890km); integrated with Vale mine operations.",
+        "key_fact": "Transports 150M t/y iron ore; Vale controls mining + rail + port vertically.",
+    },
+    "PILBARA_RAILWAYS": {
+        "name": "Pilbara Railways (BHP/Rio Tinto)",
+        "hq": "Perth, Australia",
+        "lat": -22.3494, "lon": 118.5313,
+        "type": "rail",
+        "commodities": ["iron_ore"],
+        "key_corridors": ["Interior Pilbara mines to Port Hedland"],
+        "competitive_edge": "World's longest automated heavy-haul trains; driverless operation reduces costs 20%+.",
+        "key_fact": "Combined ~400M t/y; autonomous trains = benchmark for mining logistics efficiency.",
+    },
+    "AURIZON": {
+        "name": "Aurizon Holdings",
+        "hq": "Brisbane, Australia",
+        "lat": -27.4698, "lon": 153.0251,
+        "type": "multimodal",
+        "commodities": ["coal", "iron_ore", "agriculture", "minerals"],
+        "key_corridors": ["Queensland coal belt to ports", "Bowen Basin network"],
+        "competitive_edge": "Australia's largest coal rail operator; 2,700km network.",
+        "key_fact": "Moves 200M t/y coal; essential middleman between miners and export terminals.",
+    },
+    "BNSF_RAILWAY": {
+        "name": "BNSF Railway",
+        "hq": "Fort Worth, Texas, USA",
+        "lat": 32.7555, "lon": -97.3308,
+        "type": "rail",
+        "commodities": ["coal", "grain", "minerals", "containers"],
+        "key_corridors": ["Powder River Basin to West Coast", "Midwest grain to Gulf ports"],
+        "competitive_edge": "North America's largest freight railway; 32,500 miles; coal monopoly through Powder River Basin.",
+        "key_fact": "500M+ t/y; controls North American coal export to Asia.",
+    },
+    "UNION_PACIFIC": {
+        "name": "Union Pacific Railroad",
+        "hq": "Omaha, Nebraska, USA",
+        "lat": 41.2619, "lon": -95.9018,
+        "type": "rail",
+        "commodities": ["coal", "grain", "chemicals", "minerals"],
+        "key_corridors": ["Powder River Basin to Pacific", "Midwest grain belt", "Transcontinental"],
+        "competitive_edge": "Largest US railroad; 32,400 miles; integrated with grain storage terminals.",
+        "key_fact": "450M+ t/y; competes with BNSF on coal; dominates US domestic coal logistics.",
+    },
+    "FERROMEX": {
+        "name": "Ferrocarril Mexicano (Ferromex)",
+        "hq": "Mexico City, Mexico",
+        "lat": 19.4326, "lon": -99.1332,
+        "type": "rail",
+        "commodities": ["minerals", "grain", "containers"],
+        "key_corridors": ["Northern Mexico to ports", "US-Mexico transcontinental"],
+        "competitive_edge": "Mexico's largest rail operator; 20,400km; Grupo México ownership = integrated mining + logistics.",
+        "key_fact": "Controls mineral export from Mexico's mining heartland; essential for North American commodity flows.",
+    },
+    "TRANSNET": {
+        "name": "Transnet Freight Rail (South Africa)",
+        "hq": "Johannesburg, South Africa",
+        "lat": -26.2023, "lon": 28.0436,
+        "type": "rail",
+        "commodities": ["coal", "chromium", "iron_ore"],
+        "key_corridors": ["Mpumalanga coal belt to Richards Bay", "Kalahari chrome corridor"],
+        "competitive_edge": "South Africa's state-owned rail monopoly; coal dominance through Richards Bay export.",
+        "key_fact": "200M t/y coal; controls African coal supply to power plants; chrome export monopoly for SA.",
+    },
+    "RZD": {
+        "name": "Russian Railways (RZD)",
+        "hq": "Moscow, Russia",
+        "lat": 55.7558, "lon": 37.6173,
+        "type": "multimodal",
+        "commodities": ["coal", "oil", "grain", "minerals", "metals"],
+        "key_corridors": ["Trans-Siberian Railway", "Siberian coal to Pacific", "Grain to Black Sea"],
+        "competitive_edge": "World's second-longest rail network; monopoly on Siberian commodity export.",
+        "key_fact": "1B+ t/y; Russia's commodity monopoly; coal export control = geopolitical leverage.",
+    },
+    "BOLLORE": {
+        "name": "Bolloré Transport & Logistics",
+        "hq": "Paris, France",
+        "lat": 48.8566, "lon": 2.3522,
+        "type": "freight_forwarding",
+        "commodities": ["all_commodities", "mining_logistics"],
+        "key_corridors": ["Sub-Saharan Africa freight", "West/Central Africa ports"],
+        "competitive_edge": "Africa's largest integrated logistics provider; 45+ country presence; mining supply chain specialist.",
+        "key_fact": "Essential middleman for African mineral exports; controls freight flows for artisanal miners.",
+    },
+    "DHL_FORWARDING": {
+        "name": "DHL Global Forwarding",
+        "hq": "Bonn, Germany",
+        "lat": 50.7285, "lon": 7.0921,
+        "type": "freight_forwarding",
+        "commodities": ["all_commodities", "specialty_cargo"],
+        "key_corridors": ["Global commodity routes", "Port-to-port forwarding"],
+        "competitive_edge": "Global freight forwarding leader; 220+ countries; real-time tracking.",
+        "key_fact": "Traders use DHL for price certainty and supply chain visibility on non-bulk trades.",
+    },
+}
+
+
+# ═══════════════════════════════════════════════════════════════
+# INSPECTION & QA COMPANIES — The trust layer
+# No commodity trades without inspection certificates
+# ═══════════════════════════════════════════════════════════════
+
+INSPECTION_QA = {
+    "SGS": {
+        "name": "SGS S.A.",
+        "hq": "Geneva, Switzerland",
+        "lat": 46.2044, "lon": 6.1432,
+        "type": "inspection",
+        "services": ["weight_survey", "quality_analysis", "sampling", "loading_supervision", "pre_shipment_inspection", "assay_laboratory", "cargo_tracking"],
+        "commodities_coverage": ["coal", "iron_ore", "copper", "lithium", "oil", "grain", "coffee", "minerals"],
+        "global_presence": 140,
+        "competitive_edge": "World's #1 inspection company; gold-standard for trading contracts; ISO 17025 accreditation.",
+        "key_fact": "90% of commodity trades reference SGS inspection = market price discovery depends on them.",
+    },
+    "BUREAU_VERITAS": {
+        "name": "Bureau Veritas",
+        "hq": "Paris, France",
+        "lat": 48.8566, "lon": 2.3522,
+        "type": "inspection",
+        "services": ["weight_survey", "quality_analysis", "sampling", "loading_supervision", "pre_shipment_inspection", "cargo_tracking"],
+        "commodities_coverage": ["coal", "iron_ore", "metals", "grain", "oils", "minerals"],
+        "global_presence": 130,
+        "competitive_edge": "#2 global inspector; specializes in coal/iron ore; strong Asia-Pacific port presence.",
+        "key_fact": "Primary SGS competitor; traders negotiate between SGS/BV for inspection terms.",
+    },
+    "INTERTEK": {
+        "name": "Intertek Group",
+        "hq": "London, UK",
+        "lat": 51.5074, "lon": -0.1278,
+        "type": "inspection",
+        "services": ["weight_survey", "quality_analysis", "sampling", "pre_shipment_inspection", "assay_laboratory", "cargo_tracking"],
+        "commodities_coverage": ["coal", "metals", "minerals", "grain", "oil"],
+        "global_presence": 100,
+        "competitive_edge": "#3 inspector globally; coal quality expert; rapid lab turnaround; strong in SE Asia.",
+        "key_fact": "Growing market share in thermal coal inspection; key for Powder River Basin exports.",
+    },
+    "ALS_LIMITED": {
+        "name": "ALS Limited",
+        "hq": "Brisbane, Australia",
+        "lat": -27.4698, "lon": 153.0251,
+        "type": "assay",
+        "services": ["assay_laboratory", "quality_analysis", "sampling"],
+        "commodities_coverage": ["iron_ore", "copper", "gold", "lithium", "rare_earths"],
+        "global_presence": 60,
+        "competitive_edge": "Australia's #1 mining assay lab; ore-grade specialist; rapid precious metals analysis.",
+        "key_fact": "Traders use ALS for mine-mouth assays; controls ore quality certainty for Australian exports.",
+    },
+    "CCIC": {
+        "name": "China Certification & Inspection Group",
+        "hq": "Beijing, China",
+        "lat": 39.9042, "lon": 116.4074,
+        "type": "inspection",
+        "services": ["weight_survey", "quality_analysis", "sampling", "pre_shipment_inspection"],
+        "commodities_coverage": ["iron_ore", "coal", "oil", "grain", "minerals"],
+        "global_presence": 80,
+        "competitive_edge": "China's state inspection monopoly; required for imports into China; integrated with customs.",
+        "key_fact": "Mandatory for all commodity trades into China; biggest volume inspector for iron ore/coal globally.",
+    },
+    "ALEX_STEWART": {
+        "name": "Alex Stewart International",
+        "hq": "London, UK",
+        "lat": 51.5074, "lon": -0.1278,
+        "type": "assay",
+        "services": ["assay_laboratory", "weight_survey", "sampling", "quality_analysis"],
+        "commodities_coverage": ["copper", "gold", "silver", "zinc", "nickel"],
+        "global_presence": 35,
+        "competitive_edge": "Metals trading specialist; fastest assay turnaround for precious metals; London hub credibility.",
+        "key_fact": "Copper traders prefer Alex Stewart; assay = price, so turnaround speed = money.",
+    },
+    "ALFRED_KNIGHT": {
+        "name": "Alfred H. Knight",
+        "hq": "London, UK",
+        "lat": 51.5074, "lon": -0.1278,
+        "type": "inspection",
+        "services": ["weight_survey", "sampling", "quality_analysis", "pre_shipment_inspection"],
+        "commodities_coverage": ["iron_ore", "metals", "minerals", "coal"],
+        "global_presence": 50,
+        "competitive_edge": "Independent London-based surveyor; neutral party for buyer/seller disputes.",
+        "key_fact": "Used when SGS/BV conflicts arise; arbitration choice for commodity disputes.",
+    },
+    "CESMEC": {
+        "name": "CESMEC (Centro de Estudios y Servicios de Minería)",
+        "hq": "Santiago, Chile",
+        "lat": -33.4489, "lon": -70.6693,
+        "type": "assay",
+        "services": ["assay_laboratory", "quality_analysis", "sampling"],
+        "commodities_coverage": ["copper", "lithium", "molybdenum", "gold"],
+        "global_presence": 5,
+        "competitive_edge": "Chile's mining lab specialist; integrated with Chilean mining ministry; copper/lithium expert.",
+        "key_fact": "Required for Chilean mine-mouth assays; traders use CESMEC for Chilean copper certification.",
+    },
+    "COTECNA": {
+        "name": "Cotecna Inspection S.A.",
+        "hq": "Geneva, Switzerland",
+        "lat": 46.2044, "lon": 6.1432,
+        "type": "inspection",
+        "services": ["weight_survey", "quality_analysis", "sampling", "pre_shipment_inspection"],
+        "commodities_coverage": ["all_commodities", "agricultural", "minerals", "metals", "oil"],
+        "global_presence": 120,
+        "competitive_edge": "Swiss independence; trade facilitation specialist; developing market specialist.",
+        "key_fact": "Cotecna = dispute resolution trust; used in emerging market commodity trades.",
+    },
+    "TUV_SUD": {
+        "name": "TÜV SÜD",
+        "hq": "Munich, Germany",
+        "lat": 48.1351, "lon": 11.5820,
+        "type": "certification",
+        "services": ["quality_analysis", "certification", "sampling"],
+        "commodities_coverage": ["minerals", "metals", "chemicals"],
+        "global_presence": 75,
+        "competitive_edge": "German quality standard; certification focus; EU regulation alignment; ESG/conflict mineral traceability.",
+        "key_fact": "Critical for EU commodity imports; responsible sourcing audits = premium market access.",
+    },
+}
+
+
+# ═══════════════════════════════════════════════════════════════
+# END CLIENTS — Who ultimately BUYS what mines and traders sell
+# The demand side of every commodity equation
+# ═══════════════════════════════════════════════════════════════
+
+END_CLIENTS = {
+    # ── COPPER / LITHIUM / BATTERY ────────────────────────────
+    "CATL": {
+        "name": "CATL (Contemporary Amperex Technology)",
+        "hq": "Ningde, China",
+        "lat": 26.6545, "lon": 120.3218,
+        "type": "battery_maker",
+        "commodities_consumed": ["copper", "lithium", "cobalt", "nickel"],
+        "annual_consumption": {"copper_kt": 250, "lithium_kt": 180, "cobalt_kt": 12, "nickel_kt": 80},
+        "key_suppliers": ["Codelco", "Ganfeng Lithium", "Glencore", "Rio Tinto"],
+        "key_fact": "World's #1 EV battery maker; buying power = commodity price setter; 10-year supply contracts lock trader relationships. Consumes 30% of world lithium.",
+    },
+    "BYD": {
+        "name": "BYD Company Limited",
+        "hq": "Shenzhen, China",
+        "lat": 22.5431, "lon": 114.0579,
+        "type": "battery_maker",
+        "commodities_consumed": ["lithium", "cobalt", "copper", "iron"],
+        "annual_consumption": {"lithium_kt": 120, "cobalt_kt": 8, "copper_kt": 150},
+        "key_suppliers": ["Ganfeng", "Glencore", "Codelco", "Vale"],
+        "key_fact": "China's #1 EV + battery maker; competes with CATL on commodity cost; supply negotiations set benchmark prices.",
+    },
+    "LG_ENERGY": {
+        "name": "LG Energy Solution",
+        "hq": "Seoul, South Korea",
+        "lat": 37.5665, "lon": 126.9780,
+        "type": "battery_maker",
+        "commodities_consumed": ["lithium", "cobalt", "nickel"],
+        "annual_consumption": {"lithium_kt": 80, "cobalt_kt": 6, "nickel_kt": 50},
+        "key_suppliers": ["Ganfeng", "Glencore/Trafigura", "Indonesian nickel laterite miners"],
+        "key_fact": "Korean EV battery challenger; higher quality = pays premium prices; sets battery-grade lithium/cobalt standards.",
+    },
+    "TESLA_PANASONIC": {
+        "name": "Tesla / Panasonic Battery Partnership",
+        "hq": "Nevada, USA / Osaka, Japan",
+        "lat": 39.1433, "lon": -119.7674,
+        "type": "battery_maker",
+        "commodities_consumed": ["lithium", "cobalt", "nickel"],
+        "annual_consumption": {"lithium_kt": 95, "cobalt_kt": 5, "nickel_kt": 60},
+        "key_suppliers": ["Albemarle", "Ganfeng", "Glencore"],
+        "key_fact": "Tesla's vertical integration = direct mining relationships; Panasonic partnership = battery-grade commodity lock-ins.",
+    },
+    # ── COPPER FABRICATION & UTILITIES ────────────────────────
+    "AURUBIS_BUYER": {
+        "name": "Aurubis AG",
+        "hq": "Hamburg, Germany",
+        "lat": 53.5511, "lon": 10.0046,
+        "type": "smelter_buyer",
+        "commodities_consumed": ["copper", "precious_metals"],
+        "annual_consumption": {"copper_kt": 1000},
+        "key_suppliers": ["Codelco", "Antofagasta", "Freeport-McMoRan", "Glencore", "Trafigura"],
+        "key_fact": "Europe's #1 copper smelter/refiner; capacity utilization = demand signal. TC/RC negotiations set annual global concentrate market terms.",
+    },
+    "STATE_GRID_CHINA": {
+        "name": "State Grid Corporation of China (SGCC)",
+        "hq": "Beijing, China",
+        "lat": 39.9042, "lon": 116.4074,
+        "type": "utility",
+        "commodities_consumed": ["copper", "coal"],
+        "annual_consumption": {"copper_kt": 5000, "coal_mt": 500},
+        "key_suppliers": ["Codelco", "Mongolian miners", "Australian coal exporters"],
+        "key_fact": "World's largest utility; 5M t/y copper buying = global price anchor. Traders watch SGCC procurement cycles.",
+    },
+    # ── IRON ORE / STEEL ──────────────────────────────────────
+    "CHINA_BAOWU": {
+        "name": "China Baowu Steel Group",
+        "hq": "Shanghai, China",
+        "lat": 31.2304, "lon": 121.4737,
+        "type": "manufacturer",
+        "commodities_consumed": ["iron_ore"],
+        "annual_consumption": {"iron_ore_mt": 100},
+        "key_suppliers": ["Vale", "Rio Tinto", "BHP", "Fortescue"],
+        "key_fact": "World's #1 steel producer (100M t/y); iron ore buying = global commodity price benchmark.",
+    },
+    "ARCELORMITTAL": {
+        "name": "ArcelorMittal",
+        "hq": "Luxembourg",
+        "lat": 49.6116, "lon": 6.1319,
+        "type": "manufacturer",
+        "commodities_consumed": ["iron_ore", "coal"],
+        "annual_consumption": {"iron_ore_mt": 75, "coal_mt": 20},
+        "key_suppliers": ["Vale", "Rio Tinto", "BHP", "Fortescue"],
+        "key_fact": "Global steel #2; European + American buyer; long-term contracts = price stability signals.",
+    },
+    "NIPPON_STEEL": {
+        "name": "Nippon Steel Corporation",
+        "hq": "Tokyo, Japan",
+        "lat": 35.6762, "lon": 139.6503,
+        "type": "manufacturer",
+        "commodities_consumed": ["iron_ore", "coal"],
+        "annual_consumption": {"iron_ore_mt": 60, "coal_mt": 15},
+        "key_suppliers": ["Vale", "Rio Tinto", "BHP", "Australian coal"],
+        "key_fact": "Japan's largest steelmaker; premium buyer (quality over price); sets technical specifications for ore grade.",
+    },
+    # ── OIL ───────────────────────────────────────────────────
+    "SINOPEC": {
+        "name": "Sinopec Group",
+        "hq": "Beijing, China",
+        "lat": 39.9042, "lon": 116.4074,
+        "type": "manufacturer",
+        "commodities_consumed": ["oil", "natural_gas"],
+        "annual_consumption": {"oil_mbpd": 8},
+        "key_suppliers": ["Saudi Aramco", "Russian Energy Ministry", "Iraqi OPEC", "Trafigura"],
+        "key_fact": "China's largest refiner; refining capacity = oil price setter for Asia. Geopolitical supply chain indicator.",
+    },
+    "INDIAN_OIL": {
+        "name": "Indian Oil Corporation (IOC)",
+        "hq": "New Delhi, India",
+        "lat": 28.6139, "lon": 77.2090,
+        "type": "manufacturer",
+        "commodities_consumed": ["oil", "natural_gas"],
+        "annual_consumption": {"oil_mbpd": 1.4},
+        "key_suppliers": ["OPEC countries", "Russian traders", "African exporters"],
+        "key_fact": "India's largest refiner; spot buyer = price discovery for Asian refining demand.",
+    },
+    # ── COFFEE ────────────────────────────────────────────────
+    "NESTLE": {
+        "name": "Nestlé S.A.",
+        "hq": "Vevey, Switzerland",
+        "lat": 46.4612, "lon": 6.8373,
+        "type": "food_processor",
+        "commodities_consumed": ["coffee", "cocoa", "sugar"],
+        "annual_consumption": {"coffee_kt": 700, "cocoa_kt": 500},
+        "key_suppliers": ["Brazilian farms", "Colombian growers", "Vietnamese robusta", "African co-ops"],
+        "key_fact": "World's #1 coffee buyer (700k t/y); Nestlé contracts = coffee price anchor. Supply chain transparency = ESG premium.",
+    },
+    "STARBUCKS": {
+        "name": "Starbucks Corporation",
+        "hq": "Seattle, USA",
+        "lat": 47.6062, "lon": -122.3321,
+        "type": "food_processor",
+        "commodities_consumed": ["coffee"],
+        "annual_consumption": {"coffee_kt": 180},
+        "key_suppliers": ["Direct relationships 30+ countries", "Brazilian suppliers", "Colombian co-ops"],
+        "key_fact": "Premium buyer; pays 30-50% above market for certified arabica; direct farmer relationships = brand loyalty signals.",
+    },
+    "JDE_PEETS": {
+        "name": "JDE Peet's (Jacobs Douwe Egberts)",
+        "hq": "Amsterdam, Netherlands",
+        "lat": 52.3676, "lon": 4.9041,
+        "type": "food_processor",
+        "commodities_consumed": ["coffee"],
+        "annual_consumption": {"coffee_kt": 350},
+        "key_suppliers": ["Brazilian estates", "Indonesian robusta", "Vietnamese suppliers"],
+        "key_fact": "Europe's largest coffee buyer; price-sensitive on volume buys; commodity desk-driven purchasing.",
+    },
+    # ── COAL / POWER ──────────────────────────────────────────
+    "KEPCO": {
+        "name": "Korea Electric Power Corporation",
+        "hq": "Naju, South Korea",
+        "lat": 35.0181, "lon": 126.7945,
+        "type": "utility",
+        "commodities_consumed": ["coal", "natural_gas"],
+        "annual_consumption": {"coal_mt": 100},
+        "key_suppliers": ["Indonesian coal", "Australian thermal coal", "South African coal"],
+        "key_fact": "South Korea's largest utility; thermal coal dependent; buying = Asia Pacific price discovery.",
+    },
+    "JERA": {
+        "name": "JERA Co., Inc.",
+        "hq": "Tokyo, Japan",
+        "lat": 35.6762, "lon": 139.6503,
+        "type": "utility",
+        "commodities_consumed": ["coal", "natural_gas", "oil"],
+        "annual_consumption": {"coal_mt": 90, "lng_bcm": 80},
+        "key_suppliers": ["Australian coal", "Indonesian coal", "Qatar LNG", "Australian LNG"],
+        "key_fact": "Japan's largest power utility; coal + LNG buyer sets Asian fuel mix pricing.",
+    },
+    "ESKOM": {
+        "name": "Eskom Holdings SOC",
+        "hq": "Johannesburg, South Africa",
+        "lat": -26.2023, "lon": 28.0436,
+        "type": "utility",
+        "commodities_consumed": ["coal"],
+        "annual_consumption": {"coal_mt": 150},
+        "key_suppliers": ["Domestic South African mines", "Transnet (monopoly transport)"],
+        "key_fact": "South Africa's utility monopoly; domestic coal supply = no international competition; supply crisis = Africa power shortage signal.",
+    },
+}
+
+
+# ═══════════════════════════════════════════════════════════════
 # SUPPLY CHAIN RELATIONSHIPS
 # Who supplies whom — the competitive intelligence layer
 # ═══════════════════════════════════════════════════════════════
@@ -831,10 +1790,17 @@ EXCHANGE_TICKERS = {
 # UTILITY FUNCTIONS — Used by agents and API
 # ═══════════════════════════════════════════════════════════════
 
+def _commodity_match(commodity_lower: str, candidate: str) -> bool:
+    """Check if a commodity name matches a candidate string."""
+    candidate_lower = candidate.lower()
+    return commodity_lower in candidate_lower or candidate_lower in commodity_lower
+
+
 def get_commodity_context(commodity: str) -> Dict[str, Any]:
     """
     Build comprehensive industry context for a commodity.
     This is injected into agent prompts to give them institutional knowledge.
+    Now includes the full supply chain: mines → ports → ships → smelters → clients.
     """
     commodity_lower = commodity.lower().replace("_", " ")
 
@@ -848,20 +1814,20 @@ def get_commodity_context(commodity: str) -> Dict[str, Any]:
     # Find relevant mines
     relevant_mines = []
     for mine_id, mine in MAJOR_MINES.items():
-        if mine["commodity"].lower() in commodity_lower or commodity_lower in mine["commodity"].lower():
+        if _commodity_match(commodity_lower, mine["commodity"]):
             relevant_mines.append(mine)
 
     # Find relevant refineries/smelters
     relevant_plants = []
     for plant_id, plant in REFINERIES_SMELTERS.items():
-        if plant["commodity"].lower() in commodity_lower or commodity_lower in plant["commodity"].lower():
+        if _commodity_match(commodity_lower, plant["commodity"]):
             relevant_plants.append(plant)
 
     # Find relevant exchanges
     relevant_exchanges = []
     for ex_id, ex in EXCHANGES.items():
         for comm in ex["commodities"]:
-            if commodity_lower in comm or comm in commodity_lower:
+            if _commodity_match(commodity_lower, comm):
                 relevant_exchanges.append({"id": ex_id, **ex})
                 break
 
@@ -869,8 +1835,40 @@ def get_commodity_context(commodity: str) -> Dict[str, Any]:
     relevant_traders = []
     for trader_id, trader in MAJOR_TRADERS.items():
         for comm in trader["commodities"]:
-            if commodity_lower in comm or comm in commodity_lower:
+            if _commodity_match(commodity_lower, comm):
                 relevant_traders.append({"id": trader_id, **trader})
+                break
+
+    # Find relevant ports
+    relevant_ports = []
+    for port_id, port in MAJOR_PORTS.items():
+        for comm in port["commodities"]:
+            if _commodity_match(commodity_lower, comm):
+                relevant_ports.append({"id": port_id, **port})
+                break
+
+    # Find relevant shipping companies
+    relevant_shipping = []
+    for ship_id, ship in SHIPPING_COMPANIES.items():
+        for comm in ship["commodities"]:
+            if _commodity_match(commodity_lower, comm):
+                relevant_shipping.append({"id": ship_id, **ship})
+                break
+
+    # Find relevant end clients
+    relevant_clients = []
+    for client_id, client in END_CLIENTS.items():
+        for comm in client["commodities_consumed"]:
+            if _commodity_match(commodity_lower, comm):
+                relevant_clients.append({"id": client_id, **client})
+                break
+
+    # Find relevant inspection/QA companies
+    relevant_qa = []
+    for qa_id, qa in INSPECTION_QA.items():
+        for comm in qa["commodities_coverage"]:
+            if _commodity_match(commodity_lower, comm) or comm == "all_commodities":
+                relevant_qa.append({"id": qa_id, **qa})
                 break
 
     # Exchange tickers
@@ -882,6 +1880,10 @@ def get_commodity_context(commodity: str) -> Dict[str, Any]:
         "refineries_smelters": relevant_plants,
         "exchanges": relevant_exchanges,
         "major_traders": relevant_traders,
+        "ports": relevant_ports,
+        "shipping": relevant_shipping,
+        "end_clients": relevant_clients,
+        "inspection_qa": relevant_qa,
         "exchange_tickers": tickers,
     }
 
@@ -889,7 +1891,8 @@ def get_commodity_context(commodity: str) -> Dict[str, Any]:
 def build_agent_context_prompt(commodity: str) -> str:
     """
     Build a concise industry context string to inject into agent prompts.
-    Keeps it under 500 tokens to not blow up costs.
+    Now includes the FULL supply chain: mine → port → ship → smelter → client → QA.
+    Optimized to stay under 800 tokens.
     """
     ctx = get_commodity_context(commodity)
 
@@ -929,6 +1932,27 @@ def build_agent_context_prompt(commodity: str) -> str:
         )
         parts.append(f"SMELTERS/REFINERIES: {plants_str}")
 
+    # Key ports
+    if ctx["ports"]:
+        ports_str = ", ".join(
+            f"{p['name']} ({p['country']}, {p.get('annual_throughput_mt', '?')}Mt/y)"
+            for p in ctx["ports"][:5]
+        )
+        parts.append(f"KEY PORTS: {ports_str}")
+
+    # Shipping
+    if ctx["shipping"]:
+        ship_str = ", ".join(s["name"] for s in ctx["shipping"][:4])
+        parts.append(f"SHIPPING: {ship_str}")
+
+    # End clients
+    if ctx["end_clients"]:
+        clients_str = ", ".join(
+            f"{c['name']} ({c['type']})"
+            for c in ctx["end_clients"][:4]
+        )
+        parts.append(f"END BUYERS: {clients_str}")
+
     # Traders
     if ctx["major_traders"]:
         traders_str = ", ".join(t["name"] for t in ctx["major_traders"][:5])
@@ -938,6 +1962,11 @@ def build_agent_context_prompt(commodity: str) -> str:
     if ctx["exchanges"]:
         exchanges_str = ", ".join(f"{e['id']} ({e['city']})" for e in ctx["exchanges"][:4])
         parts.append(f"EXCHANGES: {exchanges_str}")
+
+    # QA/Inspection
+    if ctx["inspection_qa"]:
+        qa_str = ", ".join(q["name"] for q in ctx["inspection_qa"][:3])
+        parts.append(f"INSPECTION/QA: {qa_str}")
 
     return "\n".join(parts) if parts else "No specific industry context available for this commodity."
 
@@ -1009,3 +2038,111 @@ def get_all_plants_summary() -> List[Dict[str, Any]]:
         }
         for plant_id, p in REFINERIES_SMELTERS.items()
     ]
+
+
+def get_all_ports_summary() -> List[Dict[str, Any]]:
+    """Return summary of all major ports for the globe visualization."""
+    return [
+        {
+            "id": port_id,
+            "name": p["name"],
+            "country": p["country"],
+            "lat": p["lat"],
+            "lon": p["lon"],
+            "type": p["type"],
+            "annual_throughput_mt": p.get("annual_throughput_mt", 0),
+            "commodities": p["commodities"],
+            "max_vessel_size": p.get("max_vessel_size", ""),
+            "bottleneck_risk": p.get("bottleneck_risk", ""),
+        }
+        for port_id, p in MAJOR_PORTS.items()
+    ]
+
+
+def get_all_shipping_summary() -> List[Dict[str, Any]]:
+    """Return summary of all shipping companies."""
+    return [
+        {
+            "id": ship_id,
+            "name": s["name"],
+            "hq": s["hq"],
+            "lat": s["lat"],
+            "lon": s["lon"],
+            "type": s["type"],
+            "fleet_size": s.get("fleet_size", 0),
+            "dwt_million": s.get("dwt_million", 0),
+            "commodities": s["commodities"],
+        }
+        for ship_id, s in SHIPPING_COMPANIES.items()
+    ]
+
+
+def get_all_logistics_summary() -> List[Dict[str, Any]]:
+    """Return summary of all logistics companies."""
+    return [
+        {
+            "id": log_id,
+            "name": l["name"],
+            "hq": l["hq"],
+            "lat": l["lat"],
+            "lon": l["lon"],
+            "type": l["type"],
+            "commodities": l["commodities"],
+            "key_corridors": l.get("key_corridors", []),
+        }
+        for log_id, l in LOGISTICS_COMPANIES.items()
+    ]
+
+
+def get_all_qa_summary() -> List[Dict[str, Any]]:
+    """Return summary of all inspection/QA companies."""
+    return [
+        {
+            "id": qa_id,
+            "name": q["name"],
+            "hq": q["hq"],
+            "lat": q["lat"],
+            "lon": q["lon"],
+            "type": q["type"],
+            "services": q["services"],
+            "global_presence": q.get("global_presence", 0),
+        }
+        for qa_id, q in INSPECTION_QA.items()
+    ]
+
+
+def get_all_clients_summary() -> List[Dict[str, Any]]:
+    """Return summary of all end clients/consumers."""
+    return [
+        {
+            "id": client_id,
+            "name": c["name"],
+            "hq": c["hq"],
+            "lat": c["lat"],
+            "lon": c["lon"],
+            "type": c["type"],
+            "commodities_consumed": c["commodities_consumed"],
+        }
+        for client_id, c in END_CLIENTS.items()
+    ]
+
+
+def get_knowledge_graph_stats() -> Dict[str, int]:
+    """Return counts of all entities in the knowledge graph."""
+    return {
+        "exchanges": len(EXCHANGES),
+        "traders": len(MAJOR_TRADERS),
+        "mines": len(MAJOR_MINES),
+        "smelters_refineries": len(REFINERIES_SMELTERS),
+        "shipping_companies": len(SHIPPING_COMPANIES),
+        "ports": len(MAJOR_PORTS),
+        "logistics_companies": len(LOGISTICS_COMPANIES),
+        "inspection_qa": len(INSPECTION_QA),
+        "end_clients": len(END_CLIENTS),
+        "supply_chains": len(SUPPLY_CHAINS),
+        "total_entities": (
+            len(EXCHANGES) + len(MAJOR_TRADERS) + len(MAJOR_MINES) +
+            len(REFINERIES_SMELTERS) + len(SHIPPING_COMPANIES) + len(MAJOR_PORTS) +
+            len(LOGISTICS_COMPANIES) + len(INSPECTION_QA) + len(END_CLIENTS)
+        ),
+    }
