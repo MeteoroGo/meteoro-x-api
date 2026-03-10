@@ -174,7 +174,7 @@ MODELS: Dict[str, ModelProfile] = {
         cost_output_per_m=0.42,
         specialization=["quantitative", "reasoning", "math", "backtesting"],
         supports_tools=False,
-        timeout_s=12.0,
+        timeout_s=10.0,
     ),
     "gpt4o-mini": ModelProfile(
         name="GPT-4o mini",
@@ -226,7 +226,7 @@ MODELS: Dict[str, ModelProfile] = {
         cost_input_per_m=1.00,
         cost_output_per_m=5.00,
         specialization=["synthesis", "coordination", "risk", "spanish", "structured"],
-        timeout_s=15.0,
+        timeout_s=10.0,
     ),
 }
 
@@ -585,3 +585,73 @@ def get_model_for_agent(agent_name: str) -> str:
 
 def get_cost_summary() -> dict:
     return cost_tracker.summary()
+
+
+# ═══════════════════════════════════════════════════════════════
+# PROVIDER WARMUP — Test each provider at startup
+# Runs a tiny "say hi" call to each configured provider.
+# Marks failed providers in health cache immediately so the
+# first real analysis doesn't waste time on dead providers.
+# ═══════════════════════════════════════════════════════════════
+
+_warmup_done = False
+
+async def warmup_providers():
+    """
+    Test each configured provider with a minimal LLM call.
+    Marks failing providers (auth errors, credit issues) in health cache.
+    Called once during FastAPI startup.
+    """
+    global _warmup_done
+    if _warmup_done:
+        return
+    _warmup_done = True
+
+    logger.info("[WARMUP] ═══ Testing all configured providers... ═══")
+    results = {}
+
+    for model_key, profile in MODELS.items():
+        api_key = os.getenv(profile.api_key_env, "").strip()
+        if not _is_valid_api_key(api_key):
+            results[model_key] = "NO_KEY"
+            continue
+
+        caller = PROVIDER_CALLERS.get(profile.provider)
+        if not caller:
+            results[model_key] = "NO_CALLER"
+            continue
+
+        try:
+            # Minimal test call — short prompt, tiny response
+            result = await asyncio.wait_for(
+                caller(profile, "You are a test.", "Reply with only: OK"),
+                timeout=8.0,
+            )
+            content = result.get("content", "").strip()
+            if content:
+                results[model_key] = "OK"
+                logger.info(f"[WARMUP] {model_key} ({profile.provider.value}): ✅ ALIVE")
+            else:
+                results[model_key] = "EMPTY_RESPONSE"
+                logger.warning(f"[WARMUP] {model_key}: empty response")
+        except Exception as e:
+            err_str = str(e).lower()
+            is_auth = any(kw in err_str for kw in [
+                "credit balance", "insufficient", "billing",
+                "authentication", "invalid api key", "unauthorized",
+                "401", "402", "403",
+            ])
+            if is_auth:
+                _mark_provider_failed(profile.provider.value, f"warmup: {str(e)[:80]}")
+                results[model_key] = f"AUTH_FAIL: {str(e)[:60]}"
+            else:
+                # Timeout or transient error — don't permanently disable, but log
+                results[model_key] = f"ERROR: {str(e)[:60]}"
+            logger.warning(f"[WARMUP] {model_key}: ❌ {results[model_key]}")
+
+    working = sum(1 for v in results.values() if v == "OK")
+    logger.info(f"[WARMUP] ═══ Results: {working}/{len(MODELS)} providers ALIVE ═══")
+    for k, v in results.items():
+        logger.info(f"[WARMUP]   {k:15s}: {v}")
+
+    return results

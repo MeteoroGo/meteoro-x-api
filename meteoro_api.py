@@ -868,7 +868,7 @@ async def get_latency_stats():
 @app.get("/api/ping")
 async def ping():
     """Lightweight keep-alive endpoint — used by background self-ping to prevent Render from sleeping."""
-    return {"pong": True, "ts": time.time()}
+    return {"pong": True, "ts": time.time(), "build": "v14.1-perf"}
 
 
 @app.get("/api/diagnostics")
@@ -1367,7 +1367,7 @@ async def _keep_alive_loop():
 @app.on_event("startup")
 async def startup():
     print("=" * 60)
-    print("  METEORO X v13 — Autonomous Intelligence API")
+    print("  METEORO X v14 — Autonomous Intelligence API")
     print("  Agentic System | Multi-Model | Knowledge Graph")
     print(f"  Swarm Available: {HAS_SWARM}")
     print(f"  Legacy Pipeline: {HAS_LEGACY}")
@@ -1381,6 +1381,17 @@ async def startup():
     except Exception as e:
         print(f"  Router status: {e}")
     print("=" * 60)
+
+    # WARMUP: Test all providers with a micro-call to identify dead ones early
+    try:
+        from multi_model_router import warmup_providers
+        print("[WARMUP] Testing all configured LLM providers...")
+        warmup_results = await warmup_providers()
+        working = sum(1 for v in (warmup_results or {}).values() if v == "OK")
+        print(f"[WARMUP] {working} providers confirmed alive")
+    except Exception as e:
+        print(f"[WARMUP] Warmup failed (non-critical): {e}")
+
     # Pre-initialize swarm
     get_swarm()
     # Start keep-alive background task
