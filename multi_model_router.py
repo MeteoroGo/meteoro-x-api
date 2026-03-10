@@ -255,7 +255,7 @@ AGENT_MODEL_MAP_IDEAL = {
     "sentiment_flow":        "groq-llama",         # Fast sentiment
 
     # Critical — Groq (fast + working), fallback to Gemini
-    "risk_guardian":         "gemini-flash",          # Spread load: risk → Gemini
+    "risk_guardian":         "groq-llama",            # Both calls → Groq (Gemini quota exhausted)
     "execution_engine":      "gemini-flash",        # Gemini for real-time
     "counterintelligence":   "gpt4o-mini",          # GPT for adversarial
 
