@@ -354,7 +354,7 @@ class MeteorSwarm:
     """
 
     TIME_BUDGET_MS = 120_000  # 120 seconds total
-    AGENT_TIMEOUT_MS = 15_000  # 15 seconds per agent (single LLM call)
+    AGENT_TIMEOUT_MS = 45_000  # 45 seconds per agent (allows for rate limit retries: 3s + 6s + 12s backoff)
     AGENT_SPACING_S = 4.0  # seconds between sequential calls (Gemini 15 RPM = 1 req/4s)
 
     def __init__(self):
@@ -501,8 +501,10 @@ class MeteorSwarm:
         if multi_provider:
             # ── PARALLEL BATCH MODE ─────────────────────────────────
             # Run 3 batches of 3 agents each (like Navy SEAL teams)
-            # Each batch runs concurrently; batches run sequentially with small gap
-            BATCH_GAP_S = 2.0  # gap between batches (enough to avoid burst limits)
+            # Each batch runs concurrently; batches run sequentially with gap
+            # Router semaphores serialize per-provider access within each batch
+            BATCH_GAP_S = 4.0  # gap between batches (provider rate limit breathing room)
+            STAGGER_S = 1.0    # stagger within batch (avoid simultaneous provider hits)
             batches = [
                 ("ALPHA", self.agent_configs[:3]),   # Physical: Satellite, Maritime, Supply Chain
                 ("BRAVO", self.agent_configs[3:6]),   # Regional: LatAm, China, Geopolitical
@@ -515,10 +517,17 @@ class MeteorSwarm:
                 if all_results:  # Gap between batches (not before first)
                     await asyncio.sleep(BATCH_GAP_S)
 
-                print(f"\n  [BATCH {batch_name}] Deploying {len(batch_configs)} agents in parallel...")
+                print(f"\n  [BATCH {batch_name}] Deploying {len(batch_configs)} agents...")
+
+                async def _staggered_agent(idx, cfg):
+                    """Launch agent with stagger delay to avoid burst."""
+                    if idx > 0:
+                        await asyncio.sleep(STAGGER_S * idx)
+                    return await self._run_llm_agent(cfg, commodity, data_str, context)
+
                 tasks = [
-                    self._run_llm_agent(config, commodity, data_str, context)
-                    for config in batch_configs
+                    _staggered_agent(i, config)
+                    for i, config in enumerate(batch_configs)
                 ]
                 batch_results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -779,26 +788,15 @@ INSTRUCTIONS:
 6. Respond with ONLY a JSON object. No text before or after the JSON.
 7. The JSON must have these exact fields: signal, confidence, reasoning, sources_analyzed, key_finding."""
 
-            # Call LLM via router with retry on 429 (rate limit)
-            max_retries = 2
-            for attempt in range(max_retries):
-                try:
-                    llm_response: LLMResponse = await asyncio.wait_for(
-                        call_llm(
-                            agent_name=router_name,
-                            system_prompt=config["prompt"],
-                            user_message=user_message,
-                        ),
-                        timeout=self.AGENT_TIMEOUT_MS / 1000.0,
-                    )
-                    break  # Success
-                except Exception as retry_e:
-                    if "429" in str(retry_e) and attempt < max_retries - 1:
-                        wait = 4.0 + attempt * 2.0  # 4s, then 6s
-                        print(f"  [{agent_name:25s}] Rate limited (429) — retrying in {wait}s...")
-                        await asyncio.sleep(wait)
-                    else:
-                        raise  # Re-raise if not 429 or last attempt
+            # Call LLM via router (router handles rate limiting + retry internally)
+            llm_response: LLMResponse = await asyncio.wait_for(
+                call_llm(
+                    agent_name=router_name,
+                    system_prompt=config["prompt"],
+                    user_message=user_message,
+                ),
+                timeout=self.AGENT_TIMEOUT_MS / 1000.0,
+            )
 
             latency = int((time.time() - agent_start) * 1000)
 

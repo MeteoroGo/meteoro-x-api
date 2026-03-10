@@ -127,7 +127,7 @@ except Exception as e:
 app = FastAPI(
     title="Meteoro X — Autonomous Intelligence",
     description="AI-Native Autonomous Commodity Intelligence | Agentic System | Industry Knowledge Graph",
-    version="13.0.0",
+    version="13.1.0",
 )
 
 app.add_middleware(
@@ -592,7 +592,7 @@ async def health():
     return {
         "status": "operational",
         "system": "Meteoro X Autonomous Intelligence",
-        "version": "13.0.0",
+        "version": "13.1.0",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "swarm_active": HAS_SWARM,
         "knowledge_graph": HAS_KNOWLEDGE,

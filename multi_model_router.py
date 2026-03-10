@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-METEORO X v11 — MULTI-MODEL ROUTER + RATE LIMITER
-Multi-Model Router | Dynamic Agent Routing | Automatic Provider Detection | Retry + Backoff
+METEORO X v13 — MULTI-MODEL ROUTER + RATE LIMITER
+Multi-Model Router | Dynamic Agent Routing | Per-Provider Semaphores | Retry + Exponential Backoff
 
 ARCHITECTURE:
   Dynamic provider detection: Automatically detects available API keys at startup
@@ -59,11 +59,25 @@ def _is_valid_api_key(key: str) -> bool:
     return True
 
 # ═══════════════════════════════════════════════════════════════
-# SIMPLE APPROACH — No rate limiter in router.
-# Swarm handles pacing by running agents sequentially with delays.
+# RATE LIMITING — Per-provider semaphores + retry with backoff.
+# Prevents concurrent calls to same provider (which triggers 429).
+# Each provider gets at most 1 in-flight request at a time.
+# On 429: exponential backoff retry (3s, 6s, 12s).
 # ═══════════════════════════════════════════════════════════════
 
-MAX_RETRIES = 1  # Just try once per provider (swarm handles pacing)
+MAX_RETRIES = 3           # Retry per provider on 429
+RETRY_BASE_DELAY = 3.0    # Base delay for exponential backoff (seconds)
+INTER_PROVIDER_DELAY = 0.5  # Small delay between trying different providers
+
+# Per-provider semaphores: serialize access to each provider
+# This prevents 3 parallel agents from all hitting Anthropic at once
+_provider_semaphores: Dict[str, asyncio.Semaphore] = {}
+
+def _get_provider_semaphore(provider_value: str) -> asyncio.Semaphore:
+    """Get or create a semaphore for a provider (1 concurrent call max)."""
+    if provider_value not in _provider_semaphores:
+        _provider_semaphores[provider_value] = asyncio.Semaphore(1)
+    return _provider_semaphores[provider_value]
 
 
 class ModelProvider(Enum):
@@ -401,7 +415,7 @@ async def call_llm(
     chain = [primary_key] + FALLBACK_CHAIN.get(primary_key, [])
 
     last_error = None
-    for model_key in chain:
+    for chain_idx, model_key in enumerate(chain):
         profile = MODELS.get(model_key)
         if not profile:
             continue
@@ -412,28 +426,46 @@ async def call_llm(
         if not caller:
             continue
 
-        t0 = time.time()
-        try:
-            result = await caller(profile, system_prompt, user_message)
-            latency = int((time.time() - t0) * 1000)
-            inp = result.get("input_tokens", 0)
-            out = result.get("output_tokens", 0)
-            cost = (inp * profile.cost_input_per_m + out * profile.cost_output_per_m) / 1_000_000
-            cost_tracker.record(model_key, cost)
-            return LLMResponse(
-                content=result["content"],
-                model_used=model_key,
-                provider=profile.provider.value,
-                input_tokens=inp,
-                output_tokens=out,
-                cost_usd=cost,
-                latency_ms=latency,
-                fallback_used=(model_key != primary_key),
-            )
-        except Exception as e:
-            last_error = e
-            logger.warning(f"[{agent_name}] {model_key} error: {str(e)[:80]}")
-            continue  # Try next model in fallback chain
+        # Small delay between trying different providers in fallback chain
+        if chain_idx > 0:
+            await asyncio.sleep(INTER_PROVIDER_DELAY)
+
+        # Acquire per-provider semaphore (serialize calls to same provider)
+        sem = _get_provider_semaphore(profile.provider.value)
+
+        for retry in range(MAX_RETRIES):
+            async with sem:
+                t0 = time.time()
+                try:
+                    result = await caller(profile, system_prompt, user_message)
+                    latency = int((time.time() - t0) * 1000)
+                    inp = result.get("input_tokens", 0)
+                    out = result.get("output_tokens", 0)
+                    cost = (inp * profile.cost_input_per_m + out * profile.cost_output_per_m) / 1_000_000
+                    cost_tracker.record(model_key, cost)
+                    return LLMResponse(
+                        content=result["content"],
+                        model_used=model_key,
+                        provider=profile.provider.value,
+                        input_tokens=inp,
+                        output_tokens=out,
+                        cost_usd=cost,
+                        latency_ms=latency,
+                        fallback_used=(model_key != primary_key),
+                    )
+                except Exception as e:
+                    last_error = e
+                    err_str = str(e)
+                    is_429 = "429" in err_str or "rate" in err_str.lower()
+
+                    if is_429 and retry < MAX_RETRIES - 1:
+                        wait = RETRY_BASE_DELAY * (2 ** retry)  # 3s, 6s, 12s
+                        logger.info(f"[{agent_name}] {model_key} rate-limited — retry {retry+1}/{MAX_RETRIES} in {wait:.0f}s")
+                        await asyncio.sleep(wait)
+                        continue  # Retry same provider
+                    else:
+                        logger.warning(f"[{agent_name}] {model_key} failed: {err_str[:80]}")
+                        break  # Move to next provider in chain
 
     return LLMResponse(
         content=json.dumps({
