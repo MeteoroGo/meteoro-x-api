@@ -247,18 +247,22 @@ class ProactiveMonitor:
         # Run the analysis (same as user-triggered, but proactive)
         result = await swarm.analyze(commodity)
 
+        # SwarmSignal is a dataclass — extract attributes directly
+        signal_value = getattr(result, 'final_signal', None)
+        signal_str = signal_value.value if hasattr(signal_value, 'value') else str(signal_value or "NEUTRAL")
+
         # Build signal record
         signal_record = {
             "commodity": commodity,
-            "signal": result.get("signal", "NEUTRAL"),
-            "conviction": result.get("conviction", 0),
+            "signal": signal_str,
+            "conviction": getattr(result, 'conviction', 0),
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "proactive": True,  # Flag: this was autonomously generated
             "cycle": self.cycles_completed + 1,
-            "latency_ms": result.get("total_latency_ms", 0),
-            "providers_used": result.get("providers_used", 0),
-            "cost_usd": result.get("total_cost_usd", 0),
-            "reasoning": result.get("reasoning", ""),
+            "latency_ms": getattr(result, 'total_latency_ms', 0),
+            "providers_used": len(getattr(result, 'all_results', [])),
+            "cost_usd": getattr(result, 'cost_usd', 0),
+            "reasoning": getattr(result, 'reasoning', ""),
         }
 
         # Store in recent signals
