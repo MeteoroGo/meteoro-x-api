@@ -68,16 +68,37 @@ def _is_valid_api_key(key: str) -> bool:
 MAX_RETRIES = 3           # Retry per provider on 429
 RETRY_BASE_DELAY = 3.0    # Base delay for exponential backoff (seconds)
 INTER_PROVIDER_DELAY = 0.5  # Small delay between trying different providers
+PROVIDER_COOLDOWN_S = 300   # Skip a provider for 5 min after auth/credit failure
 
 # Per-provider semaphores: serialize access to each provider
 # This prevents 3 parallel agents from all hitting Anthropic at once
 _provider_semaphores: Dict[str, asyncio.Semaphore] = {}
+# Provider health cache: track providers that fail with auth/credit errors
+# Maps provider_value -> timestamp when failure was detected
+_provider_failures: Dict[str, float] = {}
 
 def _get_provider_semaphore(provider_value: str) -> asyncio.Semaphore:
     """Get or create a semaphore for a provider (1 concurrent call max)."""
     if provider_value not in _provider_semaphores:
         _provider_semaphores[provider_value] = asyncio.Semaphore(1)
     return _provider_semaphores[provider_value]
+
+def _is_provider_healthy(provider_value: str) -> bool:
+    """Check if provider is healthy (not in cooldown from auth/credit failure)."""
+    fail_time = _provider_failures.get(provider_value)
+    if fail_time is None:
+        return True
+    if time.time() - fail_time > PROVIDER_COOLDOWN_S:
+        # Cooldown expired, allow retry
+        del _provider_failures[provider_value]
+        logger.info(f"[ROUTER] Provider {provider_value} cooldown expired — re-enabling")
+        return True
+    return False
+
+def _mark_provider_failed(provider_value: str, reason: str):
+    """Mark a provider as failed (auth/credit error) — skip for cooldown period."""
+    _provider_failures[provider_value] = time.time()
+    logger.warning(f"[ROUTER] Provider {provider_value} DISABLED for {PROVIDER_COOLDOWN_S}s: {reason}")
 
 
 class ModelProvider(Enum):
@@ -426,6 +447,11 @@ async def call_llm(
         if not caller:
             continue
 
+        # Skip providers in cooldown (auth/credit failures)
+        if not _is_provider_healthy(profile.provider.value):
+            logger.debug(f"[{agent_name}] Skipping {model_key} — provider in cooldown")
+            continue
+
         # Small delay between trying different providers in fallback chain
         if chain_idx > 0:
             await asyncio.sleep(INTER_PROVIDER_DELAY)
@@ -455,16 +481,27 @@ async def call_llm(
                     )
                 except Exception as e:
                     last_error = e
-                    err_str = str(e)
-                    is_429 = "429" in err_str or "rate" in err_str.lower()
+                    err_str = str(e).lower()
 
+                    # Detect auth/credit failures — disable provider for cooldown
+                    is_auth_fail = any(kw in err_str for kw in [
+                        "credit balance", "insufficient", "billing",
+                        "authentication", "invalid api key", "unauthorized",
+                        "401", "402", "403",
+                    ])
+                    if is_auth_fail:
+                        _mark_provider_failed(profile.provider.value, str(e)[:100])
+                        break  # Skip to next provider immediately
+
+                    # Detect rate limit — retry with backoff
+                    is_429 = "429" in err_str or "rate" in err_str or "too many" in err_str
                     if is_429 and retry < MAX_RETRIES - 1:
                         wait = RETRY_BASE_DELAY * (2 ** retry)  # 3s, 6s, 12s
                         logger.info(f"[{agent_name}] {model_key} rate-limited — retry {retry+1}/{MAX_RETRIES} in {wait:.0f}s")
                         await asyncio.sleep(wait)
                         continue  # Retry same provider
                     else:
-                        logger.warning(f"[{agent_name}] {model_key} failed: {err_str[:80]}")
+                        logger.warning(f"[{agent_name}] {model_key} failed: {str(e)[:80]}")
                         break  # Move to next provider in chain
 
     return LLMResponse(
