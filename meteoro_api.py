@@ -90,6 +90,19 @@ except Exception as e:
     HAS_KNOWLEDGE = False
     print(f"[WARN] Industry knowledge import failed: {e}")
 
+# Autonomous Correspondents Network
+try:
+    from data_sources.correspondents import (
+        get_all_correspondents_summary,
+        get_correspondents_for_commodity,
+        build_correspondent_prompt,
+        CORRESPONDENTS,
+    )
+    HAS_CORRESPONDENTS = True
+except Exception as e:
+    HAS_CORRESPONDENTS = False
+    print(f"[WARN] Correspondents import failed: {e}")
+
 # ═══════════════════════════════════════════════════════════════
 # APP SETUP
 # ═══════════════════════════════════════════════════════════════
@@ -1051,13 +1064,30 @@ async def knowledge_clients():
     }
 
 
+@app.get("/api/knowledge/correspondents")
+async def knowledge_correspondents():
+    """Autonomous correspondent network — AI correspondents in 12+ commodity countries."""
+    if not HAS_CORRESPONDENTS:
+        raise HTTPException(status_code=503, detail="Correspondents network not available")
+    return {
+        "correspondents": get_all_correspondents_summary(),
+        "total_countries": len(CORRESPONDENTS),
+        "source": "meteoro_correspondents_v12",
+    }
+
+
 @app.get("/api/knowledge/stats")
 async def knowledge_stats():
     """Knowledge graph statistics — entity counts across all categories."""
     if not HAS_KNOWLEDGE:
         raise HTTPException(status_code=503, detail="Knowledge graph not available")
+    stats = get_knowledge_graph_stats()
+    # Add correspondents count
+    if HAS_CORRESPONDENTS:
+        stats["correspondents"] = len(CORRESPONDENTS)
+        stats["total_entities"] = stats.get("total_entities", 0) + len(CORRESPONDENTS)
     return {
-        "stats": get_knowledge_graph_stats(),
+        "stats": stats,
         "source": "meteoro_knowledge_graph_v12",
     }
 

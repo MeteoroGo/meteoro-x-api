@@ -58,6 +58,14 @@ except Exception as e:
     HAS_KNOWLEDGE = False
     print(f"[WARN] industry_knowledge import failed: {e}")
 
+# Autonomous Correspondents Network
+try:
+    from data_sources.correspondents import build_commodity_correspondent_prompt
+    HAS_CORRESPONDENTS = True
+except Exception as e:
+    HAS_CORRESPONDENTS = False
+    print(f"[WARN] correspondents import failed: {e}")
+
 
 # ═══════════════════════════════════════════════════════════════
 # AGENT PROMPTS — Each agent's specialized instructions
@@ -372,8 +380,19 @@ class MeteorSwarm:
             except Exception as ke:
                 print(f"[KNOWLEDGE] Error building context: {ke}")
 
-        # Store industry context for agents to access
+        # ─── STEP 0.5: CORRESPONDENT NETWORK ────────────────────
+        correspondent_context = ""
+        if HAS_CORRESPONDENTS:
+            try:
+                correspondent_context = build_commodity_correspondent_prompt(commodity)
+                if correspondent_context:
+                    print(f"[CORRESPONDENTS] Local intelligence loaded for {commodity}")
+            except Exception as ce:
+                print(f"[CORRESPONDENTS] Error: {ce}")
+
+        # Store context for agents to access
         self._industry_context = industry_context
+        self._correspondent_context = correspondent_context
 
         # ─── STEP 1: FETCH REAL MARKET DATA ───────────────────────
         print("[DATA] Fetching REAL market data...")
@@ -629,21 +648,30 @@ MARKET DATA:
             industry_block = ""
             if hasattr(self, '_industry_context') and self._industry_context:
                 industry_block = f"""
-INDUSTRY INTELLIGENCE (proprietary knowledge graph):
+INDUSTRY INTELLIGENCE (proprietary knowledge graph — mines, ports, smelters, traders, clients, shipping, QA):
 {self._industry_context}
+"""
+
+            # Build correspondent context block if available
+            correspondent_block = ""
+            if hasattr(self, '_correspondent_context') and self._correspondent_context:
+                correspondent_block = f"""
+LOCAL INTELLIGENCE (autonomous correspondent network — producer country press, gazettes, alerts):
+{self._correspondent_context}
 """
 
             user_message = f"""COMMODITY: {commodity}
 
 REAL MARKET DATA (from yfinance + GDELT, fetched just now):
 {data_str}
-{industry_block}
+{industry_block}{correspondent_block}
 INSTRUCTIONS:
 1. Analyze this REAL data. Use the ACTUAL numbers provided above.
-2. Cross-reference with industry knowledge: who are the key players, where are the mines/smelters, what exchanges set the price.
-3. Do NOT invent or hallucinate data.
-4. Respond with ONLY a JSON object. No text before or after the JSON.
-5. The JSON must have these exact fields: signal, confidence, reasoning, sources_analyzed, key_finding."""
+2. Cross-reference with industry knowledge: who are the key players, where are the mines/smelters/ports, what exchanges set the price, who are the end buyers.
+3. Consider local correspondent intelligence: what is happening on the ground in producer countries.
+4. Do NOT invent or hallucinate data.
+5. Respond with ONLY a JSON object. No text before or after the JSON.
+6. The JSON must have these exact fields: signal, confidence, reasoning, sources_analyzed, key_finding."""
 
             # Call LLM via router with retry on 429 (rate limit)
             max_retries = 2
