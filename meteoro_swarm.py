@@ -568,6 +568,8 @@ Respond with ONLY this JSON (no text before or after):
             )
             analysis_latency = int((time.time() - start_time) * 1000)
             print(f"  [ANALYSIS] Response received via {llm_response.model_used} [{analysis_latency}ms]")
+            print(f"  [ANALYSIS] Raw LLM content (first 800 chars):")
+            print(llm_response.content[:800] if llm_response.content else "(EMPTY)")
 
             # Parse the comprehensive response
             master_result = self._parse_master_analysis(
@@ -576,8 +578,13 @@ Respond with ONLY this JSON (no text before or after):
             all_results.extend(master_result["agent_results"])
 
             print(f"  [ANALYSIS] Signal: {master_result['signal'].value} ({master_result['conviction']}%)")
-            for dim_name, dim_data in master_result.get("dimensions", {}).items():
+            dims = master_result.get("dimensions", {})
+            print(f"  [ANALYSIS] Dimensions extracted: {list(dims.keys()) if dims else 'NONE'}")
+            for dim_name, dim_data in dims.items():
                 print(f"    [{dim_name:12s}] {dim_data.get('signal','?'):4s} ({dim_data.get('score',0)}%) {dim_data.get('finding','')[:60]}")
+            # Log agent results summary
+            for ar in master_result["agent_results"]:
+                print(f"    [AGENT] {ar.agent_name:25s} → {ar.signal.value:4s} ({ar.confidence}%)")
 
         except Exception as e:
             print(f"  [ANALYSIS] ERROR: {str(e)[:100]}")
@@ -891,6 +898,7 @@ INSTRUCTIONS:
         """
         # Parse JSON from response
         signal, confidence, reasoning, evidence = self._parse_llm_response(content, "Master Analysis")
+        print(f"  [PARSE] _parse_llm_response → signal={signal.value}, confidence={confidence}")
 
         # Try to extract dimensional analysis
         dimensions = {}
@@ -908,8 +916,15 @@ INSTRUCTIONS:
                 json_str = re.sub(r',\s*([}\]])', r'\1', cleaned[json_start:json_end])
                 full_json = json.loads(json_str)
                 dimensions = full_json.get("dimensions", {})
-        except Exception:
-            pass
+                print(f"  [PARSE] JSON parsed OK — dimensions: {list(dimensions.keys()) if dimensions else 'NONE'}")
+                # Also extract execution data from top-level JSON
+                if not dimensions:
+                    print(f"  [PARSE] JSON keys found: {list(full_json.keys())}")
+            else:
+                print(f"  [PARSE] No JSON object found in response")
+        except Exception as parse_err:
+            print(f"  [PARSE] Dimension extraction error: {parse_err}")
+            print(f"  [PARSE] Content snippet that failed: {content[:300]}")
 
         # Map dimensions to agent names for backwards compatibility
         dim_to_agent = {
@@ -1096,7 +1111,8 @@ INSTRUCTIONS:
         total = len(results)
 
         if veto_active:
-            return (Signal.SELL, 100, "Risk Guardian VETO: Portfolio risk exceeds limits")
+            # Veto = "do NOT take this position" → neutral/hold, not forced SELL
+            return (Signal.HOLD, 40, "Risk Guardian VETO: Riesgo elevado — posición neutral recomendada")
 
         if bullish > bearish:
             signal = Signal.BUY

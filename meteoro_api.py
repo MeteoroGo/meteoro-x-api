@@ -685,14 +685,31 @@ async def analyze_endpoint(request: AnalyzeRequest):
             price_data = {}
             if hasattr(result, 'metadata') and isinstance(result.metadata, dict):
                 md = result.metadata.get("market_data", {})
-                cd = md.get("commodity", {}) if isinstance(md, dict) else {}
-                if isinstance(cd, dict) and "price" in cd:
-                    price_data = {
-                        "price": cd.get("price"),
-                        "change_pct": cd.get("change_pct", 0),
-                        "rsi_14": cd.get("rsi_14"),
-                        "volatility": cd.get("volatility_ann_pct"),
-                    }
+                if isinstance(md, dict):
+                    cd = md.get("commodity", {})
+                    if isinstance(cd, dict) and "price" in cd:
+                        price_data = {
+                            "price": cd.get("price"),
+                            "change_pct": cd.get("change_pct", 0),
+                            "rsi_14": cd.get("rsi_14"),
+                            "volatility": cd.get("volatility_ann_pct"),
+                            "sma_10": cd.get("sma_10"),
+                            "sma_20": cd.get("sma_20"),
+                        }
+                    # Fallback: check if price is at top level of market_data
+                    if not price_data and "price" in md:
+                        price_data = {"price": md.get("price"), "change_pct": md.get("change_pct", 0)}
+                    # Fallback 2: look for any nested dict with price
+                    if not price_data:
+                        for key, val in md.items():
+                            if isinstance(val, dict) and "price" in val:
+                                price_data = {
+                                    "price": val.get("price"),
+                                    "change_pct": val.get("change_pct", 0),
+                                    "rsi_14": val.get("rsi_14"),
+                                    "volatility": val.get("volatility_ann_pct"),
+                                }
+                                break
 
             # Build intelligence brief (structured by dimension)
             intel_brief = _build_intelligence_brief(
@@ -732,7 +749,8 @@ async def analyze_endpoint(request: AnalyzeRequest):
                         "summary": r.reasoning[:200],
                         "key_finding": r.evidence_pack.get("key_finding", ""),
                     }
-                    for r in result.all_results if not r.error and r.confidence > 0
+                    for r in result.all_results
+                    if not r.error and r.reasoning and "unavailable" not in r.reasoning.lower()
                 ],
                 "top_findings": narrative["top_findings"],
                 "causal_chain": [
@@ -862,7 +880,7 @@ async def get_latency_stats():
 @app.get("/api/ping")
 async def ping():
     """Lightweight keep-alive endpoint — used by background self-ping to prevent Render from sleeping."""
-    return {"pong": True, "ts": time.time(), "build": "v15-pipeline"}
+    return {"pong": True, "ts": time.time(), "build": "v15.1-parse-fix"}
 
 
 @app.get("/api/diagnostics")
