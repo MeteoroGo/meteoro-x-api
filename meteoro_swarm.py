@@ -568,7 +568,7 @@ Respond with ONLY this JSON (no text before or after):
                     system_prompt="You are an elite commodity trading AI. Be decisive. Use real data.",
                     user_message=master_prompt,
                 ),
-                timeout=30.0,
+                timeout=45.0,
             )
             analysis_latency = int((time.time() - start_time) * 1000)
             print(f"  [ANALYSIS] Response received via {llm_response.model_used} [{analysis_latency}ms]")
@@ -654,7 +654,7 @@ Output ONLY valid JSON:
                     system_prompt="You are a risk management system. Approve good trades, veto dangerous ones.",
                     user_message=risk_prompt,
                 ),
-                timeout=20.0,
+                timeout=35.0,
             )
             risk_raw = risk_response.content if risk_response.content else ""
             _last_debug["risk_raw_content"] = risk_raw[:1000]

@@ -162,7 +162,7 @@ MODELS: Dict[str, ModelProfile] = {
         cost_output_per_m=0.06,
         specialization=["speed", "volume", "sentiment", "general"],
         supports_tools=False,
-        timeout_s=10.0,
+        timeout_s=25.0,     # Increased: large master prompts need more time
     ),
     "deepseek-v3": ModelProfile(
         name="DeepSeek V3",
@@ -174,7 +174,7 @@ MODELS: Dict[str, ModelProfile] = {
         cost_output_per_m=0.42,
         specialization=["quantitative", "reasoning", "math", "backtesting"],
         supports_tools=False,
-        timeout_s=10.0,
+        timeout_s=25.0,     # Increased for large prompts
     ),
     "gpt4o-mini": ModelProfile(
         name="GPT-4o mini",
@@ -200,7 +200,7 @@ MODELS: Dict[str, ModelProfile] = {
         cost_output_per_m=0.60,
         specialization=["web_search", "grounding", "realtime", "news", "multimodal"],
         supports_tools=False,
-        timeout_s=10.0,
+        timeout_s=25.0,     # Increased for large prompts
     ),
     "kimi-k2": ModelProfile(
         name="Kimi K2",
@@ -254,13 +254,13 @@ AGENT_MODEL_MAP_IDEAL = {
     "quant_alpha":           "deepseek-v3",
     "sentiment_flow":        "groq-llama",         # Fast sentiment
 
-    # Critical — Claude Haiku (premium, but only 3 calls)
-    "risk_guardian":         "claude-haiku",        # Risk needs best model
+    # Critical — Groq for speed, fallback to Gemini
+    "risk_guardian":         "groq-llama",           # Speed + free tier
     "execution_engine":      "gemini-flash",        # Gemini for real-time
     "counterintelligence":   "gpt4o-mini",          # GPT for adversarial
 
-    # Commander (synthesis) — Claude
-    "commander":             "claude-haiku",
+    # Commander (synthesis) — Groq for speed, pipeline only uses 2 calls
+    "commander":             "groq-llama",
 }
 
 # 5-deep fallback chains — prioritized by cost
