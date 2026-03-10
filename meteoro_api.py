@@ -868,7 +868,7 @@ async def get_latency_stats():
 @app.get("/api/ping")
 async def ping():
     """Lightweight keep-alive endpoint — used by background self-ping to prevent Render from sleeping."""
-    return {"pong": True, "ts": time.time(), "build": "v14.1-perf"}
+    return {"pong": True, "ts": time.time(), "build": "v14.2-fix3"}
 
 
 @app.get("/api/diagnostics")

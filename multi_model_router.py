@@ -65,9 +65,9 @@ def _is_valid_api_key(key: str) -> bool:
 # On auth/credit failure: disable provider for 5-min cooldown.
 # ═══════════════════════════════════════════════════════════════
 
-MAX_RETRIES = 2
-RETRY_BASE_DELAY = 2.0
-INTER_PROVIDER_DELAY = 0.2
+MAX_RETRIES = 3
+RETRY_BASE_DELAY = 3.0        # 3s, 6s, 12s backoff — gives Groq time to reset
+INTER_PROVIDER_DELAY = 0.3
 PROVIDER_COOLDOWN_S = 300
 
 _provider_semaphores: Dict[str, asyncio.Semaphore] = {}
@@ -78,8 +78,8 @@ _provider_failures: Dict[str, float] = {}
 # Gemini: 10 RPM free tier → 2 concurrent calls
 # Others: 1 concurrent call (conservative)
 PROVIDER_CONCURRENCY = {
-    "groq": 3,
-    "gemini": 2,
+    "groq": 2,       # Free tier: 30 RPM — 2 concurrent is safe
+    "gemini": 2,     # Free tier: 10 RPM
     "deepseek": 2,
     "openai": 2,
     "kimi": 1,
@@ -192,7 +192,7 @@ MODELS: Dict[str, ModelProfile] = {
     # ── TIER 2: MID-COST, SPECIALIZED ─────────────────────────
     "gemini-flash": ModelProfile(
         name="Gemini 2.5 Flash",
-        model_id="gemini-2.5-flash-preview-04-17",
+        model_id="gemini-2.5-flash",
         provider=ModelProvider.GEMINI,
         base_url="https://generativelanguage.googleapis.com/v1beta/models",
         api_key_env="GEMINI_API_KEY",
@@ -409,6 +409,16 @@ async def _call_anthropic(profile: ModelProfile, system: str, user_msg: str) -> 
     }
     async with httpx.AsyncClient(timeout=profile.timeout_s) as client:
         r = await client.post(profile.base_url, json=payload, headers=headers)
+        # Check for credit/auth errors in response body BEFORE raise_for_status
+        if r.status_code >= 400:
+            try:
+                err_body = r.json()
+                err_msg = err_body.get("error", {}).get("message", "")
+                if any(kw in err_msg.lower() for kw in ["credit balance", "billing", "insufficient"]):
+                    raise ValueError(f"Anthropic credit balance error: {err_msg}")
+            except (json.JSONDecodeError, ValueError) as ve:
+                if "credit" in str(ve).lower():
+                    raise
         r.raise_for_status()
         data = r.json()
     return {
@@ -550,8 +560,9 @@ async def call_llm(
 
                     # Auth/credit failures — disable provider
                     is_auth_fail = any(kw in err_str for kw in [
-                        "credit balance", "insufficient", "billing",
+                        "credit balance", "credit", "insufficient", "billing",
                         "authentication", "invalid api key", "unauthorized",
+                        "invalid_api_key", "permission",
                         "401", "402", "403",
                     ])
                     if is_auth_fail:
