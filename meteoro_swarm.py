@@ -376,13 +376,26 @@ class MeteorSwarm:
         context: Optional[Dict[str, Any]] = None,
     ) -> SwarmSignal:
         """
-        Run full swarm analysis with REAL data and REAL LLM calls.
+        Palantir-style pipeline analysis: 2 LLM calls instead of 12.
+
+        ARCHITECTURE (inspired by Palantir AIP):
+        ┌─────────────────────────────────────────────┐
+        │ Block 1: DATA — Fetch all market data       │
+        │ Block 2: CONTEXT — Industry + Memory        │
+        │ Block 3: ANALYSIS — 1 comprehensive LLM call│
+        │ Block 4: RISK — 1 validation LLM call       │
+        │ Block 5: SIGNAL — Deterministic scoring      │
+        └─────────────────────────────────────────────┘
+
+        This uses 2 LLM calls (vs 12 before), works within free tier
+        rate limits, and produces more coherent analysis because one
+        model sees ALL dimensions simultaneously.
         """
         start_time = time.time()
         session_id = str(uuid.uuid4().hex[:8])
 
         print(f"\n{'='*70}")
-        print(f"METEORO SWARM v12 — AUTONOMOUS INTELLIGENCE — {session_id}")
+        print(f"METEORO X v15 — PIPELINE INTELLIGENCE — {session_id}")
         print(f"Commodity: {commodity}")
         print(f"{'='*70}\n")
 
@@ -471,164 +484,179 @@ class MeteorSwarm:
                 f"Provide your best assessment based on known market conditions."
             )
 
-        # ─── STEP 2: RUN ALL AGENTS WITH LLM ─────────────────────
+        # ═══════════════════════════════════════════════════════════
+        # PIPELINE BLOCK 2: COMPREHENSIVE LLM ANALYSIS (1 call)
+        # Palantir-style: ONE model analyzes ALL dimensions at once.
+        # This produces coherent cross-dimensional analysis vs 12
+        # fragmented independent opinions.
+        # ═══════════════════════════════════════════════════════════
         if not HAS_LLM:
-            print("[ERROR] LLM router not available — cannot run swarm")
+            print("[ERROR] LLM router not available")
             raise RuntimeError("LLM router not available")
 
-        # Build data string for agents — compact but complete
         data_str = json.dumps(market_data, default=str, ensure_ascii=False)
-        # Truncate if too long (LLM context limits)
-        if len(data_str) > 10000:
-            data_str = data_str[:10000] + "...[truncated]"
+        if len(data_str) > 12000:
+            data_str = data_str[:12000] + "...[truncated]"
+
+        # Build comprehensive context
+        context_blocks = [f"REAL-TIME MARKET DATA:\n{data_str}"]
+        if industry_context:
+            context_blocks.append(f"INDUSTRY INTELLIGENCE (mines, smelters, traders, exchanges):\n{industry_context[:3000]}")
+        if correspondent_context:
+            context_blocks.append(f"LOCAL INTELLIGENCE (producer country press, alerts):\n{correspondent_context[:2000]}")
+        if memory_context:
+            context_blocks.append(f"HISTORICAL MEMORY (past signals, track record):\n{memory_context[:2000]}")
+
+        full_context = "\n\n".join(context_blocks)
 
         all_results: List[SuperAgentResult] = []
+        multi_provider = True  # Pipeline mode always uses this path
 
-        # Detect how many providers are available for parallel execution
+        # ── LLM CALL 1: MASTER ANALYSIS ────────────────────────
+        print("\n[PIPELINE] Block 2: Comprehensive multi-dimensional analysis...")
+        master_prompt = f"""You are Meteoro X, an elite commodity trading intelligence system.
+Analyze {commodity.upper()} across ALL dimensions simultaneously using ONLY the real data provided.
+
+DIMENSIONS TO ANALYZE:
+1. SUPPLY: Physical supply disruptions, production signals, inventory implications
+2. DEMAND: China demand, industrial usage, seasonal patterns from the data
+3. MACRO: Interest rates, DXY, VIX — what regime are we in? (risk-on/off/inflationary/deflationary)
+4. GEOPOLITICAL: News sentiment, producer country stability, sanctions/trade policy
+5. TECHNICAL: RSI level, price vs moving averages, volatility regime, momentum
+6. SENTIMENT: News tone, volume patterns, positioning signals
+7. LATAM: Producer currency moves (CLP, BRL, PEN, COP) and their implications
+
+RULES:
+- Use ACTUAL numbers from the data (RSI, price, VIX, DXY, FX rates)
+- Be DECISIVE: BUY or SELL when data clearly supports a direction. Only HOLD if genuinely 50/50
+- Never default to HOLD out of caution — take a position when the data warrants it
+- Cross-reference dimensions: e.g. weak CLP + tight copper supply = stronger bullish signal
+- Confidence 60-85 for clear signals, 40-59 for moderate, never above 85
+
+{full_context}
+
+Respond with ONLY this JSON (no text before or after):
+{{
+  "signal": "BUY or SELL or HOLD",
+  "confidence": 0-100,
+  "reasoning": "3-4 sentences synthesizing key findings across dimensions with specific numbers",
+  "dimensions": {{
+    "supply": {{"signal": "BUY/SELL/HOLD", "score": 0-100, "finding": "1 sentence"}},
+    "demand": {{"signal": "BUY/SELL/HOLD", "score": 0-100, "finding": "1 sentence"}},
+    "macro": {{"signal": "BUY/SELL/HOLD", "score": 0-100, "finding": "1 sentence"}},
+    "geopolitical": {{"signal": "BUY/SELL/HOLD", "score": 0-100, "finding": "1 sentence"}},
+    "technical": {{"signal": "BUY/SELL/HOLD", "score": 0-100, "finding": "1 sentence"}},
+    "sentiment": {{"signal": "BUY/SELL/HOLD", "score": 0-100, "finding": "1 sentence"}},
+    "latam": {{"signal": "BUY/SELL/HOLD", "score": 0-100, "finding": "1 sentence"}}
+  }},
+  "key_finding": "THE single most important insight with a specific number",
+  "entry_price": 0.0,
+  "stop_loss": 0.0,
+  "take_profit": 0.0,
+  "risk_reward_ratio": 0.0,
+  "sources_analyzed": 8
+}}"""
+
         try:
-            from multi_model_router import _get_available_models
-            available_models = _get_available_models()
-            n_providers = len(available_models)
-        except Exception:
-            available_models = set()
-            n_providers = 1
+            llm_response = await asyncio.wait_for(
+                call_llm(
+                    agent_name="commander",
+                    system_prompt="You are an elite commodity trading AI. Be decisive. Use real data.",
+                    user_message=master_prompt,
+                ),
+                timeout=30.0,
+            )
+            analysis_latency = int((time.time() - start_time) * 1000)
+            print(f"  [ANALYSIS] Response received via {llm_response.model_used} [{analysis_latency}ms]")
 
-        # Determine if we have multi-provider capability
-        # With 2+ providers (e.g., Anthropic + Gemini): run agent BATCHES in parallel
-        # With 1 provider (e.g., Gemini only at 15 RPM): sequential with spacing
-        multi_provider = n_providers >= 2
+            # Parse the comprehensive response
+            master_result = self._parse_master_analysis(
+                llm_response.content, commodity, llm_response.model_used, llm_response
+            )
+            all_results.extend(master_result["agent_results"])
 
-        if multi_provider:
-            # ── PARALLEL BATCH MODE ─────────────────────────────────
-            # Run 3 batches of 3 agents each (like Navy SEAL teams)
-            # Each batch runs concurrently; batches run sequentially with gap
-            # Router semaphores serialize per-provider access within each batch
-            BATCH_GAP_S = 1.0  # gap between batches (router semaphores handle rate limits)
-            STAGGER_S = 0.3    # stagger within batch (brief offset, semaphores control concurrency)
-            batches = [
-                ("ALPHA", self.agent_configs[:3]),   # Physical: Satellite, Maritime, Supply Chain
-                ("BRAVO", self.agent_configs[3:6]),   # Regional: LatAm, China, Geopolitical
-                ("CHARLIE", self.agent_configs[6:9]), # Quant: Macro, Quant, Sentiment
-            ]
-            n_agents = len(self.agent_configs[:9])
-            print(f"\n[SWARM] Deploying intelligence capabilities in 3 parallel batches (providers: {n_providers})...")
+            print(f"  [ANALYSIS] Signal: {master_result['signal'].value} ({master_result['conviction']}%)")
+            for dim_name, dim_data in master_result.get("dimensions", {}).items():
+                print(f"    [{dim_name:12s}] {dim_data.get('signal','?'):4s} ({dim_data.get('score',0)}%) {dim_data.get('finding','')[:60]}")
 
-            for batch_name, batch_configs in batches:
-                if all_results:  # Gap between batches (not before first)
-                    await asyncio.sleep(BATCH_GAP_S)
+        except Exception as e:
+            print(f"  [ANALYSIS] ERROR: {str(e)[:100]}")
+            traceback.print_exc()
+            # Fallback: create neutral results
+            for config in self.agent_configs[:9]:
+                all_results.append(SuperAgentResult(
+                    agent_id=config["id"], agent_name=config["name"],
+                    signal=Signal.NEUTRAL, confidence=0,
+                    reasoning=f"Pipeline analysis failed: {str(e)[:80]}",
+                    sources_analyzed=0,
+                ))
 
-                print(f"\n  [BATCH {batch_name}] Deploying {len(batch_configs)} agents...")
+        # ── LLM CALL 2: RISK VALIDATION ───────────────────────
+        print("\n[PIPELINE] Block 3: Risk validation...")
+        veto_active = False
 
-                async def _staggered_agent(idx, cfg):
-                    """Launch agent with stagger delay to avoid burst."""
-                    if idx > 0:
-                        await asyncio.sleep(STAGGER_S * idx)
-                    return await self._run_llm_agent(cfg, commodity, data_str, context)
-
-                tasks = [
-                    _staggered_agent(i, config)
-                    for i, config in enumerate(batch_configs)
-                ]
-                batch_results = await asyncio.gather(*tasks, return_exceptions=True)
-
-                for j, result in enumerate(batch_results):
-                    config = batch_configs[j]
-                    if isinstance(result, Exception):
-                        print(f"    [Agent ERROR] {config['name']}: {result}")
-                        all_results.append(SuperAgentResult(
-                            agent_id=config["id"], agent_name=config["name"],
-                            signal=Signal.NEUTRAL, confidence=0,
-                            reasoning=f"Error: {str(result)[:100]}",
-                            sources_analyzed=0,
-                        ))
-                    else:
-                        all_results.append(result)
-
-                print(f"  [BATCH {batch_name}] Complete — {len(batch_configs)} agents done")
-
-        else:
-            # ── SEQUENTIAL MODE (single provider, rate limited) ─────
-            print(f"\n[SWARM] Deploying intelligence capabilities sequentially (providers: {n_providers}, spacing: {self.AGENT_SPACING_S}s)...")
-
-            for i, config in enumerate(self.agent_configs[:9]):
-                # Space calls to avoid Gemini 429
-                if i > 0:
-                    await asyncio.sleep(self.AGENT_SPACING_S)
-
-                try:
-                    result = await self._run_llm_agent(config, commodity, data_str, context)
-                    all_results.append(result)
-                except Exception as e:
-                    print(f"  [Agent ERROR] {config['name']}: {e}")
-                    all_results.append(SuperAgentResult(
-                        agent_id=config["id"], agent_name=config["name"],
-                        signal=Signal.NEUTRAL, confidence=0,
-                        reasoning=f"Error: {str(e)[:100]}",
-                        sources_analyzed=0,
-                    ))
-
-        # ─── STEP 3: RISK GUARDIAN (with all previous results) ────
-        await asyncio.sleep(0.5 if multi_provider else self.AGENT_SPACING_S)
-        print("\n[DELTA] Risk Guardian analyzing...")
-        prev_signals = "\n".join([
+        analysis_summary = "\n".join([
             f"  {r.agent_name}: {r.signal.value} ({r.confidence}%) — {r.reasoning[:80]}"
             for r in all_results
         ])
 
-        risk_data = f"""PREVIOUS AGENT SIGNALS:
-{prev_signals}
+        risk_prompt = f"""You are the risk management guardian for commodity trading.
+Review this analysis and decide: APPROVE or VETO.
+
+ANALYSIS RESULTS:
+{analysis_summary}
 
 MARKET DATA:
-{data_str}"""
+{data_str[:4000]}
 
-        risk_config = self.agent_configs[9]  # Agent 10 = Risk Guardian
-        risk_result = await self._run_llm_agent(
-            risk_config, commodity, risk_data, context
-        )
-        all_results.append(risk_result)
+VETO ONLY IF:
+1. VIX > 30 AND signal is BUY (extreme fear)
+2. RSI > 75 AND signal is BUY (overbought)
+3. RSI < 25 AND signal is SELL (oversold)
+4. Volatility > 40% annualized AND any directional signal
 
-        # Check for veto
-        veto_active = False
-        if risk_result.evidence_pack.get("veto", False):
-            veto_active = True
-            print(f"  [RISK GUARDIAN] ⚠ VETO ACTIVE: {risk_result.reasoning}")
-        else:
-            print(f"  [RISK GUARDIAN] ✓ No veto: {risk_result.reasoning[:60]}")
+Otherwise APPROVE and match the analysis signal.
 
-        # ─── STEP 4: EXECUTION + COUNTERINTEL ───────────────────
-        if multi_provider:
-            # Run both in parallel
-            await asyncio.sleep(0.5)
-            print("\n[DELTA] Execution + Counterintelligence (parallel)...")
-            exec_tasks = [
-                self._run_llm_agent(config, commodity, data_str, context)
-                for config in self.agent_configs[10:12]
-            ]
-            exec_results = await asyncio.gather(*exec_tasks, return_exceptions=True)
-            for j, result in enumerate(exec_results):
-                config = self.agent_configs[10 + j]
-                if isinstance(result, Exception):
-                    all_results.append(SuperAgentResult(
-                        agent_id=config["id"], agent_name=config["name"],
-                        signal=Signal.NEUTRAL, confidence=0,
-                        reasoning=str(result)[:100], sources_analyzed=0,
-                    ))
-                else:
-                    all_results.append(result)
-        else:
-            # Sequential with spacing
-            print("\n[DELTA] Execution + Counterintelligence...")
-            for config in self.agent_configs[10:12]:  # Agents 11-12
-                await asyncio.sleep(self.AGENT_SPACING_S)
-                try:
-                    r = await self._run_llm_agent(config, commodity, data_str, context)
-                    all_results.append(r)
-                except Exception as e:
-                    all_results.append(SuperAgentResult(
-                        agent_id=config["id"], agent_name=config["name"],
-                        signal=Signal.NEUTRAL, confidence=0,
-                        reasoning=str(e)[:100], sources_analyzed=0,
-                    ))
+Output ONLY valid JSON:
+{{"signal":"BUY|SELL|HOLD","confidence":0-100,"reasoning":"2-3 sentences","veto":false,"key_finding":"1 sentence"}}"""
+
+        try:
+            risk_response = await asyncio.wait_for(
+                call_llm(
+                    agent_name="risk_guardian",
+                    system_prompt="You are a risk management system. Approve good trades, veto dangerous ones.",
+                    user_message=risk_prompt,
+                ),
+                timeout=20.0,
+            )
+            risk_signal, risk_conf, risk_reasoning, risk_evidence = self._parse_llm_response(
+                risk_response.content, "Risk Guardian"
+            )
+            risk_result = SuperAgentResult(
+                agent_id=10, agent_name="Risk Guardian",
+                signal=risk_signal, confidence=risk_conf,
+                reasoning=risk_reasoning, sources_analyzed=risk_evidence.get("sources_analyzed", 5),
+                evidence_pack={**risk_evidence, "model": risk_response.model_used},
+                latency_ms=int((time.time() - start_time) * 1000),
+                cost_usd=risk_response.cost_usd,
+                metadata={"model_used": risk_response.model_used, "provider": risk_response.provider},
+            )
+            all_results.append(risk_result)
+
+            if risk_evidence.get("veto", False):
+                veto_active = True
+                print(f"  [RISK] ⚠ VETO ACTIVE: {risk_reasoning[:80]}")
+            else:
+                print(f"  [RISK] ✓ Approved: {risk_reasoning[:80]}")
+
+        except Exception as e:
+            print(f"  [RISK] ERROR (non-critical): {str(e)[:80]}")
+            all_results.append(SuperAgentResult(
+                agent_id=10, agent_name="Risk Guardian",
+                signal=Signal.HOLD, confidence=50,
+                reasoning="Risk validation unavailable — defaulting to cautious approval",
+                sources_analyzed=0,
+            ))
 
         # ─── STEP 5: CONSENSUS ───────────────────────────────────
         final_signal, conviction, reasoning = self._build_consensus(
@@ -849,6 +877,117 @@ INSTRUCTIONS:
                 sources_analyzed=0, latency_ms=latency,
                 error=str(e)[:200],
             )
+
+    def _parse_master_analysis(
+        self,
+        content: str,
+        commodity: str,
+        model_used: str,
+        llm_response: Any,
+    ) -> Dict[str, Any]:
+        """
+        Parse the comprehensive master analysis response into dimensional results.
+        Maps each dimension to an agent result for backwards compatibility with the API.
+        """
+        # Parse JSON from response
+        signal, confidence, reasoning, evidence = self._parse_llm_response(content, "Master Analysis")
+
+        # Try to extract dimensional analysis
+        dimensions = {}
+        try:
+            cleaned = content.strip()
+            if cleaned.startswith("```"):
+                lines = cleaned.split("\n")
+                if len(lines) >= 3:
+                    cleaned = "\n".join(lines[1:-1]) if lines[-1].strip() == "```" else "\n".join(lines[1:])
+                cleaned = cleaned.strip()
+            json_start = cleaned.find("{")
+            json_end = cleaned.rfind("}") + 1
+            if json_start >= 0 and json_end > json_start:
+                import re
+                json_str = re.sub(r',\s*([}\]])', r'\1', cleaned[json_start:json_end])
+                full_json = json.loads(json_str)
+                dimensions = full_json.get("dimensions", {})
+        except Exception:
+            pass
+
+        # Map dimensions to agent names for backwards compatibility
+        dim_to_agent = {
+            "supply": ("Satellite Recon", 1, "satellite_recon"),
+            "demand": ("China Demand Oracle", 5, "china_demand_oracle"),
+            "macro": ("Macro Regime Detector", 7, "macro_regime"),
+            "geopolitical": ("Geopolitical Risk Assessor", 6, "geopolitical_risk"),
+            "technical": ("Quantitative Alpha", 8, "quant_alpha"),
+            "sentiment": ("Sentiment & Flow", 9, "sentiment_flow"),
+            "latam": ("LatAm OSINT", 4, "latam_osint"),
+        }
+
+        agent_results = []
+        for dim_name, (agent_name, agent_id, router_name) in dim_to_agent.items():
+            dim_data = dimensions.get(dim_name, {})
+            dim_signal_str = str(dim_data.get("signal", signal.value)).upper().strip()
+
+            if dim_signal_str in ("BUY", "LONG", "BULLISH"):
+                dim_signal = Signal.BUY
+            elif dim_signal_str in ("SELL", "SHORT", "BEARISH"):
+                dim_signal = Signal.SELL
+            else:
+                dim_signal = Signal.HOLD
+
+            dim_score = int(dim_data.get("score", confidence))
+            dim_finding = str(dim_data.get("finding", reasoning[:100]))
+
+            agent_results.append(SuperAgentResult(
+                agent_id=agent_id,
+                agent_name=agent_name,
+                signal=dim_signal,
+                confidence=dim_score,
+                reasoning=dim_finding,
+                sources_analyzed=evidence.get("sources_analyzed", 5),
+                evidence_pack={
+                    "model": model_used, "provider": llm_response.provider,
+                    "dimension": dim_name, "raw_llm": dim_data,
+                },
+                latency_ms=llm_response.latency_ms,
+                cost_usd=llm_response.cost_usd / max(len(dim_to_agent), 1),
+                metadata={"model_used": model_used, "provider": llm_response.provider, "pipeline": True},
+            ))
+
+        # Also add "virtual" agents for Supply Chain, Maritime, Execution, Counterintelligence
+        # These map from existing dimensions
+        extra_agents = [
+            ("Maritime Intel", 2, "supply"),
+            ("Supply Chain Mapper", 3, "supply"),
+            ("Execution Engine", 11, "technical"),
+            ("Counterintelligence", 12, "sentiment"),
+        ]
+        for agent_name, agent_id, source_dim in extra_agents:
+            dim_data = dimensions.get(source_dim, {})
+            dim_signal_str = str(dim_data.get("signal", signal.value)).upper().strip()
+            if dim_signal_str in ("BUY", "LONG", "BULLISH"):
+                dim_signal = Signal.BUY
+            elif dim_signal_str in ("SELL", "SHORT", "BEARISH"):
+                dim_signal = Signal.SELL
+            else:
+                dim_signal = Signal.HOLD
+
+            agent_results.append(SuperAgentResult(
+                agent_id=agent_id, agent_name=agent_name,
+                signal=dim_signal,
+                confidence=int(dim_data.get("score", confidence)),
+                reasoning=str(dim_data.get("finding", reasoning[:100])),
+                sources_analyzed=5,
+                evidence_pack={"model": model_used, "dimension": source_dim, "pipeline": True},
+                metadata={"model_used": model_used, "pipeline": True},
+            ))
+
+        return {
+            "signal": signal,
+            "conviction": confidence,
+            "reasoning": reasoning,
+            "dimensions": dimensions,
+            "agent_results": agent_results,
+        }
 
     def _parse_llm_response(
         self,
