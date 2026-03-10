@@ -883,6 +883,16 @@ async def ping():
     return {"pong": True, "ts": time.time(), "build": "v15.1-parse-fix"}
 
 
+@app.get("/api/debug")
+async def debug_last_analysis():
+    """Debug endpoint — shows raw LLM responses from last analysis."""
+    try:
+        from meteoro_swarm import _last_debug
+        return {"debug": _last_debug, "timestamp": datetime.now(timezone.utc).isoformat()}
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @app.get("/api/diagnostics")
 async def diagnostics():
     """System diagnostics — shows provider status without exposing keys."""

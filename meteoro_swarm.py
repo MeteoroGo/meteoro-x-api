@@ -346,6 +346,10 @@ class SwarmSignal:
     metadata: Dict[str, Any]
 
 
+# Debug storage — last analysis details for /api/debug endpoint
+_last_debug: Dict[str, Any] = {}
+
+
 class MeteorSwarm:
     """
     Meteoro Swarm v9.3 — Real Data + Real LLM Analysis.
@@ -568,14 +572,30 @@ Respond with ONLY this JSON (no text before or after):
             )
             analysis_latency = int((time.time() - start_time) * 1000)
             print(f"  [ANALYSIS] Response received via {llm_response.model_used} [{analysis_latency}ms]")
+            raw_content = llm_response.content if llm_response.content else ""
             print(f"  [ANALYSIS] Raw LLM content (first 800 chars):")
-            print(llm_response.content[:800] if llm_response.content else "(EMPTY)")
+            print(raw_content[:800] if raw_content else "(EMPTY)")
+
+            # Store debug info
+            _last_debug["master_raw_content"] = raw_content[:2000]
+            _last_debug["master_model"] = llm_response.model_used
+            _last_debug["master_provider"] = llm_response.provider
+            _last_debug["master_latency_ms"] = analysis_latency
+            _last_debug["master_content_length"] = len(raw_content)
+            _last_debug["master_content_empty"] = not raw_content.strip()
 
             # Parse the comprehensive response
             master_result = self._parse_master_analysis(
                 llm_response.content, commodity, llm_response.model_used, llm_response
             )
             all_results.extend(master_result["agent_results"])
+
+            _last_debug["master_parsed_signal"] = master_result['signal'].value
+            _last_debug["master_parsed_conviction"] = master_result['conviction']
+            _last_debug["master_dimensions"] = {
+                k: {"signal": v.get("signal", "?"), "score": v.get("score", 0)}
+                for k, v in master_result.get("dimensions", {}).items()
+            }
 
             print(f"  [ANALYSIS] Signal: {master_result['signal'].value} ({master_result['conviction']}%)")
             dims = master_result.get("dimensions", {})
@@ -636,9 +656,17 @@ Output ONLY valid JSON:
                 ),
                 timeout=20.0,
             )
+            risk_raw = risk_response.content if risk_response.content else ""
+            _last_debug["risk_raw_content"] = risk_raw[:1000]
+            _last_debug["risk_model"] = risk_response.model_used
+            _last_debug["risk_provider"] = risk_response.provider
+
             risk_signal, risk_conf, risk_reasoning, risk_evidence = self._parse_llm_response(
                 risk_response.content, "Risk Guardian"
             )
+            _last_debug["risk_parsed_signal"] = risk_signal.value
+            _last_debug["risk_parsed_confidence"] = risk_conf
+            _last_debug["risk_veto"] = risk_evidence.get("veto", False)
             risk_result = SuperAgentResult(
                 agent_id=10, agent_name="Risk Guardian",
                 signal=risk_signal, confidence=risk_conf,
