@@ -354,7 +354,7 @@ class MeteorSwarm:
     """
 
     TIME_BUDGET_MS = 120_000  # 120 seconds total
-    AGENT_TIMEOUT_MS = 45_000  # 45 seconds per agent (allows for rate limit retries: 3s + 6s + 12s backoff)
+    AGENT_TIMEOUT_MS = 25_000  # 25 seconds per agent (Groq: 3-8s, retries: 3s+6s backoff)
     AGENT_SPACING_S = 4.0  # seconds between sequential calls (Gemini 15 RPM = 1 req/4s)
 
     def __init__(self):
@@ -503,8 +503,8 @@ class MeteorSwarm:
             # Run 3 batches of 3 agents each (like Navy SEAL teams)
             # Each batch runs concurrently; batches run sequentially with gap
             # Router semaphores serialize per-provider access within each batch
-            BATCH_GAP_S = 4.0  # gap between batches (provider rate limit breathing room)
-            STAGGER_S = 1.0    # stagger within batch (avoid simultaneous provider hits)
+            BATCH_GAP_S = 1.0  # gap between batches (router semaphores handle rate limits)
+            STAGGER_S = 0.3    # stagger within batch (brief offset, semaphores control concurrency)
             batches = [
                 ("ALPHA", self.agent_configs[:3]),   # Physical: Satellite, Maritime, Supply Chain
                 ("BRAVO", self.agent_configs[3:6]),   # Regional: LatAm, China, Geopolitical
@@ -568,7 +568,7 @@ class MeteorSwarm:
                     ))
 
         # ─── STEP 3: RISK GUARDIAN (with all previous results) ────
-        await asyncio.sleep(2.0 if multi_provider else self.AGENT_SPACING_S)
+        await asyncio.sleep(0.5 if multi_provider else self.AGENT_SPACING_S)
         print("\n[DELTA] Risk Guardian analyzing...")
         prev_signals = "\n".join([
             f"  {r.agent_name}: {r.signal.value} ({r.confidence}%) — {r.reasoning[:80]}"
@@ -598,7 +598,7 @@ MARKET DATA:
         # ─── STEP 4: EXECUTION + COUNTERINTEL ───────────────────
         if multi_provider:
             # Run both in parallel
-            await asyncio.sleep(2.0)
+            await asyncio.sleep(0.5)
             print("\n[DELTA] Execution + Counterintelligence (parallel)...")
             exec_tasks = [
                 self._run_llm_agent(config, commodity, data_str, context)

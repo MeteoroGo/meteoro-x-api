@@ -65,18 +65,32 @@ def _is_valid_api_key(key: str) -> bool:
 # On auth/credit failure: disable provider for 5-min cooldown.
 # ═══════════════════════════════════════════════════════════════
 
-MAX_RETRIES = 3
-RETRY_BASE_DELAY = 3.0
-INTER_PROVIDER_DELAY = 0.5
+MAX_RETRIES = 2
+RETRY_BASE_DELAY = 2.0
+INTER_PROVIDER_DELAY = 0.2
 PROVIDER_COOLDOWN_S = 300
 
 _provider_semaphores: Dict[str, asyncio.Semaphore] = {}
 _provider_failures: Dict[str, float] = {}
 
+# Per-provider concurrency limits (based on rate limits):
+# Groq: 30 RPM → can handle 3 concurrent calls safely
+# Gemini: 10 RPM free tier → 2 concurrent calls
+# Others: 1 concurrent call (conservative)
+PROVIDER_CONCURRENCY = {
+    "groq": 3,
+    "gemini": 2,
+    "deepseek": 2,
+    "openai": 2,
+    "kimi": 1,
+    "anthropic": 1,
+}
+
 def _get_provider_semaphore(provider_value: str) -> asyncio.Semaphore:
-    """Get or create a semaphore for a provider (1 concurrent call max)."""
+    """Get or create a semaphore for a provider (concurrency based on rate limits)."""
     if provider_value not in _provider_semaphores:
-        _provider_semaphores[provider_value] = asyncio.Semaphore(1)
+        limit = PROVIDER_CONCURRENCY.get(provider_value, 1)
+        _provider_semaphores[provider_value] = asyncio.Semaphore(limit)
     return _provider_semaphores[provider_value]
 
 def _is_provider_healthy(provider_value: str) -> bool:
