@@ -971,9 +971,28 @@ INSTRUCTIONS:
             "latam": ("LatAm OSINT", 4, "latam_osint"),
         }
 
+        # Normalize dimensions: some models return flat numbers (0.6) instead of dicts
+        for dim_name in list(dimensions.keys()):
+            val = dimensions[dim_name]
+            if isinstance(val, (int, float)):
+                score = int(val * 100) if val <= 1.0 else int(val)
+                dimensions[dim_name] = {
+                    "signal": "BUY" if score > 55 else ("SELL" if score < 45 else "HOLD"),
+                    "score": score,
+                    "finding": reasoning[:100] if reasoning else "",
+                }
+            elif isinstance(val, str):
+                dimensions[dim_name] = {
+                    "signal": val.upper() if val.upper() in ("BUY","SELL","HOLD") else "HOLD",
+                    "score": confidence,
+                    "finding": val,
+                }
+
         agent_results = []
         for dim_name, (agent_name, agent_id, router_name) in dim_to_agent.items():
             dim_data = dimensions.get(dim_name, {})
+            if not isinstance(dim_data, dict):
+                dim_data = {"signal": signal.value, "score": confidence, "finding": reasoning[:100]}
             dim_signal_str = str(dim_data.get("signal", signal.value)).upper().strip()
 
             if dim_signal_str in ("BUY", "LONG", "BULLISH"):
@@ -1103,7 +1122,11 @@ INSTRUCTIONS:
             else:
                 signal = Signal.HOLD
 
-            confidence = max(0, min(100, int(json_data.get("confidence", 50))))
+            raw_conf = json_data.get("confidence", 50)
+            # Normalize: some models return 0.0-1.0 instead of 0-100
+            if isinstance(raw_conf, float) and raw_conf <= 1.0:
+                raw_conf = int(raw_conf * 100)
+            confidence = max(0, min(100, int(raw_conf)))
             reasoning = str(json_data.get("reasoning", json_data.get("key_finding", "No reasoning provided")))
             sources = int(json_data.get("sources_analyzed", 3))
             key_finding = str(json_data.get("key_finding", ""))
