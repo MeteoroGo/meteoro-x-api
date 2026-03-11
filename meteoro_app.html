@@ -1500,7 +1500,7 @@ class ErrorBoundary extends React.Component{
                 React.createElement('button',{onClick:()=>{this.setState({hasError:false,error:null,errorInfo:null,resetKey:this.state.resetKey+1})},style:{background:'rgba(0,180,255,0.15)',border:'1px solid rgba(0,180,255,0.3)',color:'#00b4ff',padding:'10px 28px',borderRadius:'6px',cursor:'pointer',fontSize:'13px',fontWeight:600,transition:'all 0.3s'}},'Reiniciar App')
             );
         }
-        return React.createElement('div',{key:'app-'+this.state.resetKey,style:{width:'100%',height:'100%'}},this.props.children);
+        return React.createElement('div',{key:'app-'+this.state.resetKey,style:{width:'100%',height:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-end',pointerEvents:'none'}},this.props.children);
     }
 }
 
