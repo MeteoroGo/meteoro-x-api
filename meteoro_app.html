@@ -926,6 +926,14 @@
 </script>
 
 <!-- ═══ REACT APP ═══ -->
+<script>
+window.__METEORO_ERRORS=[];
+window.onerror=function(msg,src,line,col,err){
+    window.__METEORO_ERRORS.push({msg:msg,src:src,line:line,col:col,err:err?err.toString():''});
+    var el=document.getElementById('debug-errors');
+    if(el) el.textContent=JSON.stringify(window.__METEORO_ERRORS,null,2);
+};
+</script>
 <script type="text/babel">
 const {useState,useEffect,useRef} = React;
 
@@ -1440,15 +1448,19 @@ function App(){
 }
 
 class ErrorBoundary extends React.Component{
-    constructor(p){super(p);this.state={hasError:false,error:null}}
+    constructor(p){super(p);this.state={hasError:false,error:null,errorInfo:null}}
     static getDerivedStateFromError(e){return{hasError:true,error:e}}
-    componentDidCatch(e,info){console.error('ErrorBoundary caught:',e,info)}
+    componentDidCatch(e,info){console.error('ErrorBoundary caught:',e,info);this.setState({errorInfo:info})}
     render(){
         if(this.state.hasError){
-            return React.createElement('div',{style:{position:'fixed',top:0,left:0,right:0,bottom:0,background:'#000008',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',zIndex:99999,fontFamily:'Inter,sans-serif',color:'#e0e8f0'}},
+            const errMsg=this.state.error?this.state.error.toString():'Unknown error';
+            const stack=this.state.errorInfo?.componentStack||'';
+            return React.createElement('div',{style:{position:'fixed',top:0,left:0,right:0,bottom:0,background:'#000008',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',zIndex:99999,fontFamily:'Inter,sans-serif',color:'#e0e8f0',padding:'20px'}},
                 React.createElement('div',{style:{fontSize:'18px',fontWeight:600,marginBottom:'12px',color:'#06D6A0',fontFamily:'Orbitron,sans-serif'}},'METEORO X'),
-                React.createElement('div',{style:{fontSize:'13px',color:'#8899aa',marginBottom:'20px'}},'Error temporal del sistema. Reinicia el análisis.'),
-                React.createElement('button',{onClick:()=>{this.setState({hasError:false,error:null})},style:{background:'rgba(0,180,255,0.15)',border:'1px solid rgba(0,180,255,0.3)',color:'#00b4ff',padding:'10px 28px',borderRadius:'6px',cursor:'pointer',fontSize:'13px',fontWeight:600}},'Reiniciar')
+                React.createElement('div',{style:{fontSize:'13px',color:'#8899aa',marginBottom:'10px'}},'Error temporal del sistema.'),
+                React.createElement('div',{style:{fontSize:'10px',color:'#ff6666',marginBottom:'6px',maxWidth:'600px',wordBreak:'break-all',textAlign:'center',fontFamily:'monospace'}},errMsg),
+                React.createElement('div',{style:{fontSize:'9px',color:'#556677',marginBottom:'20px',maxWidth:'600px',maxHeight:'80px',overflow:'auto',whiteSpace:'pre-wrap',fontFamily:'monospace'}},stack.slice(0,300)),
+                React.createElement('button',{onClick:()=>{this.setState({hasError:false,error:null,errorInfo:null})},style:{background:'rgba(0,180,255,0.15)',border:'1px solid rgba(0,180,255,0.3)',color:'#00b4ff',padding:'10px 28px',borderRadius:'6px',cursor:'pointer',fontSize:'13px',fontWeight:600}},'Reiniciar')
             );
         }
         return this.props.children;
