@@ -151,7 +151,7 @@ class ModelProfile:
 # ═══════════════════════════════════════════════════════════════
 
 MODELS: Dict[str, ModelProfile] = {
-    # ── TIER 1: ULTRA-LOW COST ─────────────────────────────────
+    # ── TIER 1: ULTRA-LOW COST (Groq — 3 models, separate daily quotas) ──
     "groq-llama": ModelProfile(
         name="Groq Llama 3.3 70B",
         model_id="llama-3.3-70b-versatile",
@@ -163,6 +163,30 @@ MODELS: Dict[str, ModelProfile] = {
         specialization=["speed", "volume", "sentiment", "general"],
         supports_tools=False,
         timeout_s=25.0,     # Increased: large master prompts need more time
+    ),
+    "groq-scout": ModelProfile(
+        name="Groq Llama 4 Scout 17B",
+        model_id="meta-llama/llama-4-scout-17b-16e-instruct",
+        provider=ModelProvider.GROQ,
+        base_url="https://api.groq.com/openai/v1/chat/completions",
+        api_key_env="GROQ_API_KEY",
+        cost_input_per_m=0.04,      # Free tier, separate daily quota from 70B
+        cost_output_per_m=0.04,
+        specialization=["speed", "general", "analysis"],
+        supports_tools=False,
+        timeout_s=25.0,
+    ),
+    "groq-8b": ModelProfile(
+        name="Groq Llama 3.1 8B",
+        model_id="llama-3.1-8b-instant",
+        provider=ModelProvider.GROQ,
+        base_url="https://api.groq.com/openai/v1/chat/completions",
+        api_key_env="GROQ_API_KEY",
+        cost_input_per_m=0.02,      # Free tier, separate daily quota from 70B
+        cost_output_per_m=0.02,
+        specialization=["speed", "simple"],
+        supports_tools=False,
+        timeout_s=20.0,
     ),
     "deepseek-v3": ModelProfile(
         name="DeepSeek V3",
@@ -263,14 +287,17 @@ AGENT_MODEL_MAP_IDEAL = {
     "commander":             "groq-llama",
 }
 
-# 5-deep fallback chains — prioritized by cost
+# 7-deep fallback chains — Groq has 3 models with SEPARATE daily quotas
+# When groq-llama (70B, 100K tok/day) is exhausted, groq-scout (17B) and groq-8b have fresh quotas
 FALLBACK_CHAIN: Dict[str, List[str]] = {
-    "groq-llama":    ["deepseek-v3", "gpt4o-mini", "gemini-flash", "kimi-k2", "claude-haiku"],
-    "deepseek-v3":   ["groq-llama", "gpt4o-mini", "gemini-flash", "kimi-k2", "claude-haiku"],
-    "gpt4o-mini":    ["deepseek-v3", "groq-llama", "gemini-flash", "kimi-k2", "claude-haiku"],
-    "gemini-flash":  ["groq-llama", "deepseek-v3", "gpt4o-mini", "kimi-k2", "claude-haiku"],
-    "kimi-k2":       ["deepseek-v3", "groq-llama", "gpt4o-mini", "gemini-flash", "claude-haiku"],
-    "claude-haiku":  ["deepseek-v3", "gpt4o-mini", "groq-llama", "gemini-flash", "kimi-k2"],
+    "groq-llama":    ["groq-scout", "groq-8b", "deepseek-v3", "gpt4o-mini", "gemini-flash", "kimi-k2", "claude-haiku"],
+    "groq-scout":    ["groq-llama", "groq-8b", "deepseek-v3", "gpt4o-mini", "gemini-flash", "kimi-k2", "claude-haiku"],
+    "groq-8b":       ["groq-scout", "groq-llama", "deepseek-v3", "gpt4o-mini", "gemini-flash", "kimi-k2", "claude-haiku"],
+    "deepseek-v3":   ["groq-llama", "groq-scout", "groq-8b", "gpt4o-mini", "gemini-flash", "kimi-k2", "claude-haiku"],
+    "gpt4o-mini":    ["deepseek-v3", "groq-llama", "groq-scout", "groq-8b", "gemini-flash", "kimi-k2", "claude-haiku"],
+    "gemini-flash":  ["groq-llama", "groq-scout", "groq-8b", "deepseek-v3", "gpt4o-mini", "kimi-k2", "claude-haiku"],
+    "kimi-k2":       ["deepseek-v3", "groq-llama", "groq-scout", "groq-8b", "gpt4o-mini", "gemini-flash", "claude-haiku"],
+    "claude-haiku":  ["deepseek-v3", "gpt4o-mini", "groq-llama", "groq-scout", "groq-8b", "gemini-flash", "kimi-k2"],
 }
 
 
