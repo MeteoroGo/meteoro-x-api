@@ -1081,8 +1081,11 @@ function App(){
         }
     };
 
+    const searchingRef=useRef(false);
     const handleSearch=async(query=input)=>{
         if(!query.trim())return;
+        if(searchingRef.current) return; // Prevent concurrent searches
+        searchingRef.current=true;
         setInput(query); setAnalyzing(true); setResults(null);
         setPhase('init'); setSteps([]); setError(null);
 
@@ -1140,11 +1143,13 @@ function App(){
             setError(e.message || 'Connection error');
         }
         setAnalyzing(false);
+        searchingRef.current=false;
         if(window.resetRoutes) setTimeout(window.resetRoutes,5000);
     };
 
     const handleReset=()=>{
-        setResults(null);setInput('');setPhase('idle');setSteps([]);setError(null);
+        searchingRef.current=false;
+        setResults(null);setInput('');setPhase('idle');setSteps([]);setError(null);setAnalyzing(false);
         if(window.resetRoutes) window.resetRoutes();
         if(window.meteoroGlobe) window.meteoroGlobe.pointOfView({lat:0,lng:-45,altitude:2.8},1500);
     };
@@ -1225,14 +1230,14 @@ function App(){
                                         ● {getDirection(results.signal?.direction||results.signal?.action)}
                                     </div>
                                     <div className="sig-ticker">{results.signal?.ticker||results.commodity||'COMMODITY'}</div>
-                                    {results.price_data?.price>0&&(
+                                    {(()=>{try{const p=results.price_data;if(!p||!p.price||p.price<=0)return null;return(
                                         <div className="sig-price">
-                                            ${results.price_data.price.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
-                                            <span className={results.price_data.change_pct>=0?'up':'down'}>
-                                                {results.price_data.change_pct>=0?'▲':'▼'}{Math.abs(results.price_data.change_pct)}%
+                                            ${Number(p.price).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
+                                            <span className={(p.change_pct||0)>=0?'up':'down'}>
+                                                {(p.change_pct||0)>=0?'▲':'▼'}{Math.abs(p.change_pct||0)}%
                                             </span>
                                         </div>
-                                    )}
+                                    );}catch(e){console.error('Price render error:',e);return null}})()}
                                     <div className="sig-split" style={{marginTop:'6px'}}>
                                         <span className="bull">▲{results.swarm_results?.agents_bullish||0}</span>
                                         <span className="bear">▼{results.swarm_results?.agents_bearish||0}</span>
@@ -1240,13 +1245,13 @@ function App(){
                                     </div>
                                 </div>
                                 <div className="gauge-wrap">
-                                    <Gauge conviction={results.signal?.conviction||results.conviction||0}/>
+                                    <Gauge conviction={Number(results.signal?.conviction||results.conviction||0)}/>
                                     <div className="gauge-lbl">Conviction</div>
                                 </div>
                             </div>
 
                             {/* ═══ INTELLIGENCE BRIEF ═══ */}
-                            {(()=>{
+                            {(()=>{try{
                                 const ib=results.intelligence_brief||{};
                                 const dims=ib.dimensions||[];
                                 const ep=ib.execution_plan||{};
@@ -1254,8 +1259,7 @@ function App(){
                                 const dirColor=dir==='LONG'?'#10B981':dir==='SHORT'?'#EF4444':'#F59E0B';
                                 const price=results.price_data?.price;
                                 const changePct=results.price_data?.change_pct||0;
-                                return(
-                                <>
+                                return(<>
                                     {/* HEADLINE — the ONE thing you need to know */}
                                     {ib.headline?(
                                         <div style={{
@@ -1300,7 +1304,7 @@ function App(){
                                                                 transition:'width 1s ease'}}></div>
                                                         </div>
                                                         {d.finding&&(
-                                                            <div style={{fontSize:'10px',color:'#607080',marginTop:'3px',lineHeight:1.4}}>{d.finding.slice(0,120)}</div>
+                                                            <div style={{fontSize:'10px',color:'#607080',marginTop:'3px',lineHeight:1.4}}>{String(d.finding||'').slice(0,120)}</div>
                                                         )}
                                                     </div>
                                                 );
@@ -1309,7 +1313,7 @@ function App(){
                                     )}
 
                                     {/* EXECUTION PLAN — what to DO */}
-                                    {ep.entry>0&&dir!=='HOLD'&&(
+                                    {ep.entry>0&&ep.stop_loss>0&&ep.take_profit>0&&dir!=='HOLD'&&(
                                         <div style={{
                                             padding:'12px 14px',marginBottom:'14px',borderRadius:'8px',
                                             background:'rgba(0,180,255,0.04)',border:'1px solid rgba(0,180,255,0.1)',
@@ -1361,7 +1365,7 @@ function App(){
                                                 color:'rgba(239,68,68,0.5)',letterSpacing:'2px',
                                                 marginBottom:'4px',textTransform:'uppercase'
                                             }}>⚠ Riesgo Clave</div>
-                                            <div style={{fontSize:'11px',color:'#a08080',lineHeight:1.5}}>{ib.key_risk.slice(0,200)}</div>
+                                            <div style={{fontSize:'11px',color:'#a08080',lineHeight:1.5}}>{String(ib.key_risk||'').slice(0,200)}</div>
                                         </div>
                                     )}
 
@@ -1411,7 +1415,7 @@ function App(){
                                     </div>
                                 </>
                                 );
-                            })()}
+                            }catch(renderErr){console.error('Brief render error:',renderErr);return <div style={{color:'#ff6666',fontSize:'11px',padding:'12px'}}>Error al renderizar. <button className="reset-btn" onClick={handleReset}>Reintentar</button></div>}})()}
                         </>
                     )}
                 </div>
@@ -1435,7 +1439,23 @@ function App(){
     );
 }
 
-ReactDOM.createRoot(document.getElementById('react-root')).render(<App/>);
+class ErrorBoundary extends React.Component{
+    constructor(p){super(p);this.state={hasError:false,error:null}}
+    static getDerivedStateFromError(e){return{hasError:true,error:e}}
+    componentDidCatch(e,info){console.error('ErrorBoundary caught:',e,info)}
+    render(){
+        if(this.state.hasError){
+            return React.createElement('div',{style:{position:'fixed',top:0,left:0,right:0,bottom:0,background:'#000008',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',zIndex:99999,fontFamily:'Inter,sans-serif',color:'#e0e8f0'}},
+                React.createElement('div',{style:{fontSize:'18px',fontWeight:600,marginBottom:'12px',color:'#06D6A0',fontFamily:'Orbitron,sans-serif'}},'METEORO X'),
+                React.createElement('div',{style:{fontSize:'13px',color:'#8899aa',marginBottom:'20px'}},'Error temporal del sistema. Reinicia el análisis.'),
+                React.createElement('button',{onClick:()=>{this.setState({hasError:false,error:null})},style:{background:'rgba(0,180,255,0.15)',border:'1px solid rgba(0,180,255,0.3)',color:'#00b4ff',padding:'10px 28px',borderRadius:'6px',cursor:'pointer',fontSize:'13px',fontWeight:600}},'Reiniciar')
+            );
+        }
+        return this.props.children;
+    }
+}
+
+ReactDOM.createRoot(document.getElementById('react-root')).render(React.createElement(ErrorBoundary,null,React.createElement(App)));
 </script>
 </body>
 </html>
