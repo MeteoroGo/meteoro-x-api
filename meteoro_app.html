@@ -982,8 +982,13 @@ function Gauge({conviction}){
     );
 }
 
-function SafeText({text,fallback=''}){
-    return String(text||fallback);
+function SafeText(val,fallback){
+    if(val===null||val===undefined)return String(fallback||'');
+    if(typeof val==='object'){
+        if(val.message)return String(val.message);
+        try{return JSON.stringify(val).slice(0,300)}catch(e){return ''}
+    }
+    return String(val);
 }
 
 function App(){
