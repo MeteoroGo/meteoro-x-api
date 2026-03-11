@@ -926,14 +926,6 @@
 </script>
 
 <!-- ═══ REACT APP ═══ -->
-<script>
-window.__METEORO_ERRORS=[];
-window.onerror=function(msg,src,line,col,err){
-    window.__METEORO_ERRORS.push({msg:msg,src:src,line:line,col:col,err:err?err.toString():''});
-    var el=document.getElementById('debug-errors');
-    if(el) el.textContent=JSON.stringify(window.__METEORO_ERRORS,null,2);
-};
-</script>
 <script type="text/babel">
 const {useState,useEffect,useRef} = React;
 
@@ -1229,37 +1221,49 @@ function App(){
                         </>
                     )}
 
-                    {results&&(
-                        <>
+                    {results&&(()=>{try{
+                        const sig=results.signal||{};
+                        const pd=results.price_data||{};
+                        const sw=results.swarm_results||{};
+                        const ib=results.intelligence_brief||{};
+                        const dims=Array.isArray(ib.dimensions)?ib.dimensions:[];
+                        const ep=(ib.execution_plan&&typeof ib.execution_plan==='object')?ib.execution_plan:{};
+                        const dir=getDirection(sig.direction||sig.action);
+                        const dirColor=dir==='LONG'?'#10B981':dir==='SHORT'?'#EF4444':'#F59E0B';
+                        const price=Number(pd.price)||0;
+                        const changePct=Number(pd.change_pct)||0;
+                        const conviction=Number(sig.conviction||results.conviction||0);
+                        const ticker=String(sig.ticker||results.commodity||'COMMODITY');
+                        return(<>
                             {/* Signal Card */}
                             <div className="sig-card">
                                 <div>
-                                    <div className={`sig-dir ${dirClass(results.signal?.direction||results.signal?.action)}`}>
-                                        ● {getDirection(results.signal?.direction||results.signal?.action)}
+                                    <div className={`sig-dir ${dirClass(sig.direction||sig.action)}`}>
+                                        ● {dir}
                                     </div>
-                                    <div className="sig-ticker">{results.signal?.ticker||results.commodity||'COMMODITY'}</div>
-                                    {(()=>{try{const p=results.price_data;if(!p||!p.price||p.price<=0)return null;return(
+                                    <div className="sig-ticker">{ticker}</div>
+                                    {price>0&&(
                                         <div className="sig-price">
-                                            ${Number(p.price).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
-                                            <span className={(p.change_pct||0)>=0?'up':'down'}>
-                                                {(p.change_pct||0)>=0?'▲':'▼'}{Math.abs(p.change_pct||0)}%
+                                            ${price.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
+                                            <span className={changePct>=0?'up':'down'}>
+                                                {changePct>=0?'▲':'▼'}{Math.abs(changePct)}%
                                             </span>
                                         </div>
-                                    );}catch(e){console.error('Price render error:',e);return null}})()}
+                                    )}
                                     <div className="sig-split" style={{marginTop:'6px'}}>
-                                        <span className="bull">▲{results.swarm_results?.agents_bullish||0}</span>
-                                        <span className="bear">▼{results.swarm_results?.agents_bearish||0}</span>
-                                        <span className="neut">●{results.swarm_results?.agents_neutral||0}</span>
+                                        <span className="bull">▲{sw.agents_bullish||0}</span>
+                                        <span className="bear">▼{sw.agents_bearish||0}</span>
+                                        <span className="neut">●{sw.agents_neutral||0}</span>
                                     </div>
                                 </div>
                                 <div className="gauge-wrap">
-                                    <Gauge conviction={Number(results.signal?.conviction||results.conviction||0)}/>
+                                    <Gauge conviction={conviction}/>
                                     <div className="gauge-lbl">Conviction</div>
                                 </div>
                             </div>
 
                             {/* ═══ INTELLIGENCE BRIEF ═══ */}
-                            {(()=>{try{
+                            {(()=>{
                                 const ib=results.intelligence_brief||{};
                                 const dims=ib.dimensions||[];
                                 const ep=ib.execution_plan||{};
@@ -1423,9 +1427,9 @@ function App(){
                                     </div>
                                 </>
                                 );
-                            }catch(renderErr){console.error('Brief render error:',renderErr);return <div style={{color:'#ff6666',fontSize:'11px',padding:'12px'}}>Error al renderizar. <button className="reset-btn" onClick={handleReset}>Reintentar</button></div>}})()}
-                        </>
-                    )}
+                            })()}
+                        </>);
+                    }catch(renderErr){console.error('Results render error:',renderErr);return(<div style={{padding:'20px',textAlign:'center'}}><div style={{color:'#ff6666',fontSize:'12px',fontFamily:'Share Tech Mono,monospace',marginBottom:'12px'}}>Error renderizando resultados</div><div style={{color:'#556677',fontSize:'10px',fontFamily:'monospace',marginBottom:'12px'}}>{String(renderErr)}</div><button className="reset-btn" onClick={handleReset}>Reintentar</button></div>)}})()}
                 </div>
             )}
 
@@ -1448,7 +1452,7 @@ function App(){
 }
 
 class ErrorBoundary extends React.Component{
-    constructor(p){super(p);this.state={hasError:false,error:null,errorInfo:null}}
+    constructor(p){super(p);this.state={hasError:false,error:null,errorInfo:null,resetKey:0}}
     static getDerivedStateFromError(e){return{hasError:true,error:e}}
     componentDidCatch(e,info){console.error('ErrorBoundary caught:',e,info);this.setState({errorInfo:info})}
     render(){
@@ -1460,10 +1464,10 @@ class ErrorBoundary extends React.Component{
                 React.createElement('div',{style:{fontSize:'13px',color:'#8899aa',marginBottom:'10px'}},'Error temporal del sistema.'),
                 React.createElement('div',{style:{fontSize:'10px',color:'#ff6666',marginBottom:'6px',maxWidth:'600px',wordBreak:'break-all',textAlign:'center',fontFamily:'monospace'}},errMsg),
                 React.createElement('div',{style:{fontSize:'9px',color:'#556677',marginBottom:'20px',maxWidth:'600px',maxHeight:'80px',overflow:'auto',whiteSpace:'pre-wrap',fontFamily:'monospace'}},stack.slice(0,300)),
-                React.createElement('button',{onClick:()=>{this.setState({hasError:false,error:null,errorInfo:null})},style:{background:'rgba(0,180,255,0.15)',border:'1px solid rgba(0,180,255,0.3)',color:'#00b4ff',padding:'10px 28px',borderRadius:'6px',cursor:'pointer',fontSize:'13px',fontWeight:600}},'Reiniciar')
+                React.createElement('button',{onClick:()=>{this.setState({hasError:false,error:null,errorInfo:null,resetKey:this.state.resetKey+1})},style:{background:'rgba(0,180,255,0.15)',border:'1px solid rgba(0,180,255,0.3)',color:'#00b4ff',padding:'10px 28px',borderRadius:'6px',cursor:'pointer',fontSize:'13px',fontWeight:600}},'Reiniciar')
             );
         }
-        return this.props.children;
+        return React.createElement('div',{key:'app-'+this.state.resetKey,style:{width:'100%',height:'100%'}},this.props.children);
     }
 }
 
