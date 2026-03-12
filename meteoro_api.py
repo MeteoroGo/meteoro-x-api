@@ -57,10 +57,22 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
 def _sanitize_nan(obj):
-    """Replace NaN/Inf with None recursively — required for valid JSON."""
+    """Replace NaN/Inf with None and convert numpy types — required for valid JSON."""
+    # Handle numpy types first (before isinstance checks for Python types)
+    try:
+        import numpy as np
+        if isinstance(obj, (np.bool_, np.generic)):
+            obj = obj.item()  # Convert numpy scalar to Python scalar
+    except ImportError:
+        pass
+
     if isinstance(obj, float):
         if math.isnan(obj) or math.isinf(obj):
             return None
+        return obj
+    if isinstance(obj, bool):
+        return obj
+    if isinstance(obj, (int,)):
         return obj
     if isinstance(obj, dict):
         return {k: _sanitize_nan(v) for k, v in obj.items()}

@@ -114,11 +114,23 @@ except Exception as e:
 # ═══════════════════════════════════════════════════════════════
 
 def _sanitize_nan(obj):
-    """Replace NaN/Inf with None recursively — required for JSON serialization."""
+    """Replace NaN/Inf with None and convert numpy types — required for JSON serialization."""
     import math
+    # Handle numpy types first
+    try:
+        import numpy as np
+        if isinstance(obj, (np.bool_, np.generic)):
+            obj = obj.item()
+    except ImportError:
+        pass
+
     if isinstance(obj, float):
         if math.isnan(obj) or math.isinf(obj):
             return None
+        return obj
+    if isinstance(obj, bool):
+        return obj
+    if isinstance(obj, (int,)):
         return obj
     if isinstance(obj, dict):
         return {k: _sanitize_nan(v) for k, v in obj.items()}
