@@ -48,7 +48,7 @@ from typing import Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
 import math
@@ -709,22 +709,39 @@ async def swarm_config():
     return {"error": "Swarm not initialized", "has_swarm": HAS_SWARM}
 
 
+def _json_safe_dumps(obj):
+    """JSON serialize with NaN/Inf replaced by null."""
+    import json as _json
+
+    class NaNSafeEncoder(_json.JSONEncoder):
+        def default(self, o):
+            return str(o)
+        def encode(self, o):
+            o = _sanitize_nan(o)
+            return super().encode(o)
+
+    return _json.dumps(obj, cls=NaNSafeEncoder, ensure_ascii=False)
+
+
 @app.post("/api/analyze")
 async def analyze_endpoint(request: AnalyzeRequest):
     """
     Full analysis — uses Swarm if available, falls back to legacy pipeline.
     """
     try:
-        return await _do_analyze(request)
+        result = await _do_analyze(request)
+        # Force sanitize and use JSONResponse to avoid FastAPI NaN serialization issues
+        sanitized = _sanitize_nan(result)
+        return JSONResponse(content=sanitized)
     except Exception as outer_e:
         print(f"[OUTER ERROR] {outer_e}")
         traceback.print_exc()
-        return {
+        return JSONResponse(content={
             "error": f"Analysis failed: {str(outer_e)}",
             "error_type": type(outer_e).__name__,
             "command": request.command,
             "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
+        })
 
 
 async def _do_analyze(request: AnalyzeRequest):
