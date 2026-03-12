@@ -854,8 +854,19 @@ async def analyze_endpoint(request: AnalyzeRequest):
             return response
 
         except Exception as e:
+            error_detail = traceback.format_exc()
             print(f"[SWARM ERROR] {e}")
-            traceback.print_exc()
+            print(error_detail)
+            # Return error details instead of falling through silently
+            return {
+                "error": f"Swarm analysis error: {str(e)}",
+                "error_type": type(e).__name__,
+                "commodity": commodity,
+                "command": request.command,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "pipeline_latency_ms": int((time.time() - start) * 1000),
+                "traceback_hint": str(e)[:300],
+            }
 
     # Fallback to legacy pipeline
     if HAS_LEGACY:
