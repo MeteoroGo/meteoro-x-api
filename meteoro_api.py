@@ -714,6 +714,21 @@ async def analyze_endpoint(request: AnalyzeRequest):
     """
     Full analysis — uses Swarm if available, falls back to legacy pipeline.
     """
+    try:
+        return await _do_analyze(request)
+    except Exception as outer_e:
+        print(f"[OUTER ERROR] {outer_e}")
+        traceback.print_exc()
+        return {
+            "error": f"Analysis failed: {str(outer_e)}",
+            "error_type": type(outer_e).__name__,
+            "command": request.command,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+
+async def _do_analyze(request: AnalyzeRequest):
+    """Inner analysis function."""
     start = time.time()
     commodity = detect_commodity(request.command)
 
