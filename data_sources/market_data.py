@@ -148,11 +148,14 @@ def _fetch_ticker_sync(ticker: str, period: str = "1mo") -> Dict[str, Any]:
         else:
             volatility = 0
 
-        # Price history (last 5 days)
+        # Price history — ALL available (for quant engine: RSI needs 14+, MACD needs 35+)
         price_history = []
-        for date, row in hist.tail(5).iterrows():
+        for date, row in hist.iterrows():
             price_history.append({
                 "date": date.strftime("%Y-%m-%d"),
+                "open": round(float(row["Open"]), 4) if "Open" in row else 0,
+                "high": round(float(row["High"]), 4) if "High" in row else 0,
+                "low": round(float(row["Low"]), 4) if "Low" in row else 0,
                 "close": round(float(row["Close"]), 4),
                 "volume": int(row["Volume"]) if "Volume" in row else 0,
             })
@@ -300,9 +303,10 @@ async def fetch_full_market_context(commodity: str) -> Dict[str, Any]:
     """
     Fetch ALL real data needed for a full swarm analysis.
     This is called once and shared across all agents in the system.
+    Uses 3-month period for commodity to feed quant engine (RSI=14, MACD=35, BB=20).
     """
-    # Fetch everything in parallel
-    commodity_task = fetch_commodity_price(commodity)
+    # Fetch everything in parallel — 3mo for commodity (quant engine needs 35+ bars)
+    commodity_task = fetch_commodity_price(commodity, period="3mo")
     macro_task = fetch_macro_indicators()
     fx_task = fetch_latam_fx()
 

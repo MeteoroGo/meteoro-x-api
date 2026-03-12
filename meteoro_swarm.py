@@ -74,6 +74,40 @@ except Exception as e:
     HAS_MEMORY = False
     print(f"[WARN] autonomous_memory import failed: {e}")
 
+# Quantitative Engine — ALL math in Python, not LLM
+try:
+    from quant_engine import (
+        calculate_full_technicals,
+        generate_quant_signal,
+        calculate_execution_plan,
+        calculate_kelly_criterion,
+        calculate_var,
+    )
+    HAS_QUANT = True
+    print("[OK] Quant engine loaded")
+except Exception as e:
+    HAS_QUANT = False
+    print(f"[WARN] quant_engine import failed: {e}")
+
+# NASA FIRMS Satellite Intelligence
+try:
+    from data_sources.nasa_firms import monitor_site, scan_all_sites, MONITORED_SITES
+    HAS_FIRMS = True
+    print("[OK] NASA FIRMS satellite module loaded")
+except Exception as e:
+    HAS_FIRMS = False
+    print(f"[WARN] nasa_firms import failed: {e}")
+
+# Signal Tracker — Paper Trading Record
+try:
+    from signal_tracker import init_db as init_signal_db, record_signal
+    init_signal_db()
+    HAS_TRACKER = True
+    print("[OK] Signal tracker initialized")
+except Exception as e:
+    HAS_TRACKER = False
+    print(f"[WARN] signal_tracker import failed: {e}")
+
 
 # ═══════════════════════════════════════════════════════════════
 # AGENT PROMPTS — Each agent's specialized instructions
@@ -488,6 +522,83 @@ class MeteorSwarm:
                 f"Provide your best assessment based on known market conditions."
             )
 
+        # ─── STEP 1.5: QUANTITATIVE ENGINE (Python math, NOT LLM) ──
+        quant_data = {}
+        if HAS_QUANT:
+            try:
+                cd = market_data.get("commodity", {})
+                price_hist = cd.get("price_history", [])
+                if price_hist and len(price_hist) >= 5:
+                    # Use REAL OHLCV data from yfinance (full period, not just last 5)
+                    closes = [p["close"] for p in price_hist]
+                    highs = [p.get("high", p["close"] * 1.005) for p in price_hist]
+                    lows = [p.get("low", p["close"] * 0.995) for p in price_hist]
+                    vols = [p.get("volume", 100000) for p in price_hist]
+                    n_bars = len(closes)
+                    print(f"[QUANT] {n_bars} OHLCV bars available for technical analysis")
+                    technicals = calculate_full_technicals(closes, highs, lows, vols)
+                    quant_data["technicals"] = technicals
+                    rsi_val = technicals.get('rsi',{}).get('value', None)
+                    rsi_str = f"{rsi_val:.1f}" if rsi_val and not (isinstance(rsi_val, float) and rsi_val != rsi_val) else "N/A (need 14+ bars)"
+                    print(f"[QUANT] Technicals: RSI={rsi_str}, bars={n_bars}")
+                # Also use the pre-calculated indicators from yfinance
+                if "price" in cd:
+                    quant_signal = generate_quant_signal(cd, market_data.get("macro",{}), market_data.get("fx",{}))
+                    quant_data["signal"] = quant_signal
+                    print(f"[QUANT] Python signal: {quant_signal.get('signal','?')} conf={quant_signal.get('confidence','?')} score={quant_signal.get('combined_score','?')}")
+            except Exception as qe:
+                print(f"[QUANT] Error: {qe}")
+                import traceback as tb
+                tb.print_exc()
+
+        # ─── STEP 1.7: NASA FIRMS SATELLITE INTELLIGENCE ────────────
+        satellite_data = {}
+        if HAS_FIRMS:
+            try:
+                # Map commodity to monitored sites
+                commodity_sites = {
+                    "COPPER": ["las_bambas", "cerro_verde", "antamina", "callao"],
+                    "COAL": ["cerrejon", "drummond", "puerto_bolivar"],
+                    "GOLD": ["buritica"],
+                    "OIL": ["cano_limon"],
+                }
+                sites_to_check = commodity_sites.get(commodity.upper(), [])
+                if sites_to_check:
+                    sat_tasks = [monitor_site(s, days=2) for s in sites_to_check if s in MONITORED_SITES]
+                    if sat_tasks:
+                        sat_results = await asyncio.gather(*sat_tasks, return_exceptions=True)
+                        alerts = []
+                        for sr in sat_results:
+                            if isinstance(sr, dict) and sr.get("status") == "OK":
+                                site_info = sr.get("site", {})
+                                thermal = sr.get("thermal", {})
+                                anomaly = sr.get("anomaly", {})
+                                satellite_data[site_info.get("key", "unknown")] = {
+                                    "name": site_info.get("name", ""),
+                                    "fires": thermal.get("fires_detected", 0),
+                                    "baseline": thermal.get("baseline", 0),
+                                    "ratio": thermal.get("ratio", 0),
+                                    "anomaly": anomaly.get("status", "UNKNOWN"),
+                                    "score": anomaly.get("score", 0),
+                                    "interpretation": anomaly.get("interpretation", ""),
+                                }
+                                if anomaly.get("score", 0) >= 0.5:
+                                    alerts.append(f"⚠ {site_info.get('name','')}: {anomaly.get('status','')} — {anomaly.get('interpretation','')[:100]}")
+                        if alerts:
+                            print(f"[SATELLITE] ⚠ {len(alerts)} alert(s) detected!")
+                            for a in alerts:
+                                print(f"  {a}")
+                        else:
+                            print(f"[SATELLITE] {len(satellite_data)} sites scanned, no anomalies")
+                else:
+                    print(f"[SATELLITE] No monitored sites for {commodity}")
+            except Exception as se:
+                print(f"[SATELLITE] Error: {se}")
+
+        # Store enriched data for API response
+        market_data["quant"] = quant_data
+        market_data["satellite"] = satellite_data
+
         # ═══════════════════════════════════════════════════════════
         # PIPELINE BLOCK 2: COMPREHENSIVE LLM ANALYSIS (1 call)
         # Palantir-style: ONE model analyzes ALL dimensions at once.
@@ -504,6 +615,19 @@ class MeteorSwarm:
 
         # Build comprehensive context
         context_blocks = [f"REAL-TIME MARKET DATA:\n{data_str}"]
+
+        # Add PYTHON-VERIFIED quantitative analysis (not LLM-guessed)
+        if quant_data:
+            qd_str = json.dumps(quant_data, default=str, ensure_ascii=False)
+            if len(qd_str) > 4000:
+                qd_str = qd_str[:4000]
+            context_blocks.append(f"PYTHON-CALCULATED QUANTITATIVE ANALYSIS (verified, not estimated):\n{qd_str}")
+
+        # Add satellite intelligence
+        if satellite_data:
+            sat_str = json.dumps(satellite_data, default=str, ensure_ascii=False)
+            context_blocks.append(f"NASA FIRMS SATELLITE INTELLIGENCE (thermal anomaly detection at mining sites):\n{sat_str}")
+
         if industry_context:
             context_blocks.append(f"INDUSTRY INTELLIGENCE (mines, smelters, traders, exchanges):\n{industry_context[:3000]}")
         if correspondent_context:
@@ -713,6 +837,70 @@ Output ONLY valid JSON:
         print(f"Bearish: {sum(1 for r in all_results if r.signal == Signal.SELL)}")
         print(f"Latency: {total_latency:.0f}ms | Cost: ${total_cost:.4f}")
         print(f"{'='*70}\n")
+
+        # ─── STEP 5.5: QUANT EXECUTION PLAN (Python math) ───────────
+        quant_execution = {}
+        if HAS_QUANT and quant_data.get("technicals"):
+            try:
+                cd = market_data.get("commodity", {})
+                price = cd.get("price", 0)
+                direction = "LONG" if final_signal == Signal.BUY else "SHORT" if final_signal == Signal.SELL else "HOLD"
+                if price > 0 and direction != "HOLD":
+                    exec_plan = calculate_execution_plan(
+                        price=price,
+                        technicals=quant_data["technicals"],
+                        signal_direction=direction,
+                        conviction=conviction / 100.0,
+                        portfolio_size=100000,
+                        risk_pct=2.0,
+                    )
+                    quant_execution = exec_plan
+                    entry = exec_plan.get("entry", {}).get("price", 0)
+                    stop = exec_plan.get("stop_loss", {}).get("price", 0)
+                    target = exec_plan.get("take_profit", {}).get("price", 0)
+                    rr = exec_plan.get("risk_reward", {}).get("ratio", 0)
+                    print(f"[QUANT PLAN] Entry=${entry:.4f} Stop=${stop:.4f} Target=${target:.4f} R:R={rr:.1f}:1")
+
+                    # Kelly Criterion
+                    kelly = calculate_kelly_criterion(0.55, 1.5, 1.0, 100000)
+                    quant_execution["kelly"] = kelly
+                    print(f"[QUANT PLAN] Kelly: {kelly.get('half_kelly',0)*100:.1f}% position recommended")
+
+                    # VaR
+                    vol = cd.get("volatility_ann_pct", 25)
+                    var_data = calculate_var(kelly.get("half_kelly", 0.1) * 100, price, vol, 100000)
+                    quant_execution["var"] = var_data
+            except Exception as qpe:
+                print(f"[QUANT PLAN] Error: {qpe}")
+
+        market_data["quant_execution"] = quant_execution
+
+        # ─── STEP 5.7: RECORD SIGNAL FOR PAPER TRADING ─────────────
+        if HAS_TRACKER and quant_execution:
+            try:
+                loop = asyncio.get_event_loop()
+                cd = market_data.get("commodity", {})
+                sig_data = {
+                    "commodity": commodity,
+                    "direction": "LONG" if final_signal == Signal.BUY else "SHORT" if final_signal == Signal.SELL else "HOLD",
+                    "conviction": conviction,
+                    "entry_price": quant_execution.get("entry", {}).get("price", cd.get("price", 0)),
+                    "stop_loss": quant_execution.get("stop_loss", {}).get("price", 0),
+                    "take_profit": quant_execution.get("take_profit", {}).get("price", 0),
+                    "position_size_pct": quant_execution.get("kelly", {}).get("half_kelly", 0) * 100,
+                    "risk_reward": quant_execution.get("risk_reward", {}).get("ratio", 0),
+                    "kelly_fraction": quant_execution.get("kelly", {}).get("half_kelly", 0),
+                    "key_risk": reasoning[:200],
+                    "headline": f"{'COMPRA' if final_signal == Signal.BUY else 'VENTA' if final_signal == Signal.SELL else 'ESPERA'} {commodity} — Convicción {conviction}%",
+                    "model_used": "pipeline_v16",
+                    "pipeline_latency_ms": total_latency,
+                    "cost_usd": total_cost,
+                    "data_sources": json.dumps(["yfinance", "GDELT", "knowledge_graph"] + (["NASA_FIRMS"] if satellite_data else [])),
+                }
+                tracker_id = await loop.run_in_executor(None, record_signal, sig_data)
+                print(f"[TRACKER] Signal recorded: {tracker_id}")
+            except Exception as te:
+                print(f"[TRACKER] Error: {te}")
 
         # ─── STEP 6: PERSIST TO AUTONOMOUS MEMORY ─────────────────
         if self.memory:

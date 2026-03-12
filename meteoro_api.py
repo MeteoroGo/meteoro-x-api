@@ -444,10 +444,37 @@ def _build_intelligence_brief(result, commodity: str, price_data: dict, language
     lang = language.lower()[:2] if language else "es"
     direction = _signal_to_direction(result.final_signal.value)
 
+    # ── Try to get quant execution plan (Python-calculated, NOT LLM) ──
+    quant_exec = {}
+    if hasattr(result, 'metadata') and isinstance(result.metadata, dict):
+        md = result.metadata.get("market_data", {})
+        if isinstance(md, dict):
+            quant_exec = md.get("quant_execution", {})
+
     # ── Group agents by dimension ──────────────────────────────
     dimensions = {}
     execution_plan = {}
     key_risk = ""
+
+    # Use quant engine execution plan if available (Python math > LLM guesses)
+    if quant_exec and quant_exec.get("entry"):
+        entry_data = quant_exec.get("entry", {})
+        sl_data = quant_exec.get("stop_loss", {})
+        tp_data = quant_exec.get("take_profit", {})
+        kelly_data = quant_exec.get("kelly", {})
+        rr_data = quant_exec.get("risk_reward", {})
+        var_data = quant_exec.get("var", {})
+
+        execution_plan = {
+            "entry": entry_data.get("price", 0),
+            "stop_loss": sl_data.get("price", 0),
+            "take_profit": tp_data.get("price", 0),
+            "position_size": round((kelly_data.get("half_kelly", 0)) * 100, 1),
+            "risk_reward": rr_data.get("ratio", 0),
+            "var_95": var_data.get("var_95_pct", 0),
+            "source": "quant_engine",
+            "reasoning": f"ATR-based entry/exit. R:R {rr_data.get('ratio', 0):.1f}x. Kelly sizing {kelly_data.get('half_kelly', 0)*100:.1f}%. VaR95 {var_data.get('var_95_pct', 0):.1f}%",
+        }
 
     for r in result.all_results:
         if r.error or r.confidence == 0:
@@ -456,16 +483,18 @@ def _build_intelligence_brief(result, commodity: str, price_data: dict, language
         dim = _get_agent_dimension(r.agent_name)
 
         if dim == "execution":
-            # Extract execution plan from Execution Engine
-            ep = r.evidence_pack.get("raw_llm", {})
-            if ep:
-                execution_plan = {
-                    "entry": ep.get("entry_price", 0),
-                    "stop_loss": ep.get("stop_loss", 0),
-                    "take_profit": ep.get("take_profit", 0),
-                    "position_size": ep.get("position_size_pct", 0),
-                    "reasoning": r.evidence_pack.get("key_finding", r.reasoning[:150]),
-                }
+            # Only use LLM execution plan as fallback if quant engine didn't provide one
+            if not execution_plan:
+                ep = r.evidence_pack.get("raw_llm", {})
+                if ep:
+                    execution_plan = {
+                        "entry": ep.get("entry_price", 0),
+                        "stop_loss": ep.get("stop_loss", 0),
+                        "take_profit": ep.get("take_profit", 0),
+                        "position_size": ep.get("position_size_pct", 0),
+                        "reasoning": r.evidence_pack.get("key_finding", r.reasoning[:150]),
+                        "source": "llm_fallback",
+                    }
             continue
 
         if dim == "validation":
@@ -542,7 +571,13 @@ def _build_intelligence_brief(result, commodity: str, price_data: dict, language
         for d in top_dims:
             dir_word = {"BULLISH": "alcista", "BEARISH": "bajista"}.get(d["direction"], "neutral")
             summary_parts.append(f"{d['label']}: {dir_word} ({d['avg_confidence']}%)")
-        summary = f"Sistema agentico analizó {commodity} en tiempo real. " + ". ".join([d["key_finding"][:100] for d in top_dims if d["key_finding"]])[:400]
+        summary = f"Sistema agéntico analizó {commodity} en tiempo real. " + ". ".join([d["key_finding"][:100] for d in top_dims if d["key_finding"]])[:400]
+        # Enrich with quant data if available
+        if quant_exec and quant_exec.get("entry"):
+            rr = quant_exec.get("risk_reward", {}).get("ratio", 0)
+            kelly_pct = quant_exec.get("kelly", {}).get("half_kelly", 0) * 100
+            if rr > 0:
+                summary += f" R:R {rr:.1f}x, Kelly {kelly_pct:.0f}%."
     else:
         summary = f"Agentic system analyzed {commodity} in real-time across multiple dimensions."
 
@@ -770,6 +805,20 @@ async def analyze_endpoint(request: AnalyzeRequest):
                     "available": HAS_KNOWLEDGE,
                     "prompt_injected": HAS_KNOWLEDGE,
                 } if HAS_KNOWLEDGE else {"available": False},
+                # V17: Quantitative Engine + Satellite + Signal Tracker
+                "quant_engine": md.get("quant", {}) if isinstance(md, dict) else {},
+                "quant_execution": md.get("quant_execution", {}) if isinstance(md, dict) else {},
+                "satellite_intel": md.get("satellite", {}) if isinstance(md, dict) else {},
+                "data_sources_used": [
+                    s for s in [
+                        "yfinance" if price_data else None,
+                        "GDELT" if isinstance(md, dict) and md.get("news", {}).get("articles") else None,
+                        "knowledge_graph" if HAS_KNOWLEDGE else None,
+                        "NASA_FIRMS" if isinstance(md, dict) and md.get("satellite") else None,
+                        "quant_engine" if isinstance(md, dict) and md.get("quant") else None,
+                        "memory" if hasattr(result, 'metadata') and isinstance(result.metadata, dict) and result.metadata.get("has_real_data") else None,
+                    ] if s is not None
+                ],
                 "pack_hash": f"sha256:{hash(result.reasoning) & 0xFFFFFFFF:08x}",
             }
 
