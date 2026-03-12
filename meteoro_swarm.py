@@ -110,6 +110,23 @@ except Exception as e:
 
 
 # ═══════════════════════════════════════════════════════════════
+# UTILITY: Sanitize NaN values (breaks JSON serialization)
+# ═══════════════════════════════════════════════════════════════
+
+def _sanitize_nan(obj):
+    """Replace NaN/Inf with None recursively — required for JSON serialization."""
+    import math
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
+    if isinstance(obj, dict):
+        return {k: _sanitize_nan(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_sanitize_nan(v) for v in obj]
+    return obj
+
+# ═══════════════════════════════════════════════════════════════
 # AGENT PROMPTS — Each agent's specialized instructions
 # ═══════════════════════════════════════════════════════════════
 
@@ -595,8 +612,8 @@ class MeteorSwarm:
             except Exception as se:
                 print(f"[SATELLITE] Error: {se}")
 
-        # Store enriched data for API response
-        market_data["quant"] = quant_data
+        # Store enriched data for API response (sanitize NaN for JSON)
+        market_data["quant"] = _sanitize_nan(quant_data)
         market_data["satellite"] = satellite_data
 
         # ═══════════════════════════════════════════════════════════
@@ -873,7 +890,7 @@ Output ONLY valid JSON:
             except Exception as qpe:
                 print(f"[QUANT PLAN] Error: {qpe}")
 
-        market_data["quant_execution"] = quant_execution
+        market_data["quant_execution"] = _sanitize_nan(quant_execution)
 
         # ─── STEP 5.7: RECORD SIGNAL FOR PAPER TRADING ─────────────
         if HAS_TRACKER and quant_execution:

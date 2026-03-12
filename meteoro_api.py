@@ -51,7 +51,22 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
+import math
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+
+def _sanitize_nan(obj):
+    """Replace NaN/Inf with None recursively — required for valid JSON."""
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
+    if isinstance(obj, dict):
+        return {k: _sanitize_nan(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_sanitize_nan(v) for v in obj]
+    return obj
 
 # Import old pipeline as fallback
 try:
@@ -718,6 +733,7 @@ async def analyze_endpoint(request: AnalyzeRequest):
 
             # Extract price data from swarm's market data if available
             price_data = {}
+            md = {}  # Initialize to prevent NameError
             if hasattr(result, 'metadata') and isinstance(result.metadata, dict):
                 md = result.metadata.get("market_data", {})
                 if isinstance(md, dict):
@@ -821,6 +837,9 @@ async def analyze_endpoint(request: AnalyzeRequest):
                 ],
                 "pack_hash": f"sha256:{hash(result.reasoning) & 0xFFFFFFFF:08x}",
             }
+
+            # Sanitize NaN values (numpy NaN breaks JSON serialization)
+            response = _sanitize_nan(response)
 
             signal_history.append({
                 "pack_id": response["pack_id"],
